@@ -28,6 +28,7 @@ import {
   keyCodeLabel,
   useSettingsStore,
 } from '@/ui/state/settingsStore';
+import { WHISPER_MODELS } from '@/voice/whisperEngine';
 import { disableVoice, useVoiceStore } from '@/ui/state/voiceRuntime';
 
 function Row({
@@ -81,6 +82,61 @@ export function SettingsView() {
         <CardDescription>Voix, feedback et données.</CardDescription>
       </CardHeader>
       <CardContent>
+        <Row
+          label="Moteur de reconnaissance"
+          hint="Vosk : offline, instantané, mais galère sur les noms fantasy. Whisper : IA plus robuste aux noms/accents (télécharge un modèle au 1er coup, réactive la voix après)."
+        >
+          <Select
+            value={settings.sttEngine}
+            onValueChange={(v) => settings.set({ sttEngine: v as 'vosk' | 'whisper' })}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="vosk">Vosk (offline)</SelectItem>
+              <SelectItem value="whisper">Whisper (IA)</SelectItem>
+            </SelectContent>
+          </Select>
+        </Row>
+
+        {settings.sttEngine === 'whisper' && (
+          <Row
+            label="Modèle Whisper"
+            hint="Base = plus précis sur les noms, mais plus lourd/lent que Tiny."
+          >
+            <Select
+              value={settings.whisperModel}
+              onValueChange={(v) => settings.set({ whisperModel: v as 'tiny' | 'base' })}
+            >
+              <SelectTrigger className="w-52">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tiny">{WHISPER_MODELS.tiny.label}</SelectItem>
+                <SelectItem value="base">{WHISPER_MODELS.base.label}</SelectItem>
+              </SelectContent>
+            </Select>
+          </Row>
+        )}
+
+        {settings.sttEngine === 'whisper' && (
+          <Row
+            label="CDN transformers.js (avancé)"
+            hint="Si Whisper ne charge pas, essaie …@3.0.2/+esm ou …/dist/transformers.min.js"
+            htmlFor="whisper-cdn"
+          >
+            <Input
+              id="whisper-cdn"
+              value={settings.whisperCdnUrl}
+              onChange={(e) =>
+                settings.set({ whisperCdnUrl: e.target.value || settings.whisperCdnUrl })
+              }
+              className="w-72 font-mono text-xs"
+            />
+          </Row>
+        )}
+
         <Row label="Touche push-to-talk" hint="Maintenir pour parler (défaut V)">
           <Button
             variant="outline"

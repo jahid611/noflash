@@ -92,9 +92,18 @@ Trois leviers de fiabilité, dans l'ordre d'impact :
    vosk est alors OBLIGÉ de sortir le champion le plus proche au lieu de
    répondre « inconnu » (toggle « Anti-bruit strict » dans les Réglages pour le
    réactiver).
-3. **Rattrapage phonétique** (Levenshtein ≤ 1) dans le parser : récupère les
-   quasi-erreurs (« set » → Sett) sans jamais lancer un timer au hasard. Le
-   vocabulaire de mots-clés inclut les variantes FR d'usage (« ulti » → ult).
+3. **Rattrapage phonétique** dans le parser : `phoneticKey()` relie ce qui est
+   dit au bon champion même si vosk transcrit de travers (« malfite » →
+   Malphite), sans jamais lancer un timer au hasard. Le vocabulaire inclut les
+   variantes FR (« ulti » → ult, « erre » → R) et des **orthographes FR des noms**
+   (`FRENCH_ALIASES` : « lucien », « ari »…) que le modèle FR sait prononcer.
+
+**Moteur alternatif : Whisper.** Réglages → « Moteur de reconnaissance » bascule
+vosk ⇄ **Whisper** (l'IA d'OpenAI, en local via transformers.js chargé du CDN).
+Bien plus robuste aux noms fantasy et couvre tout le roster (transcription
+libre + rattrapage phonétique), au prix d'un téléchargement de modèle au 1er
+usage (~40-150 Mo, mis en cache) et de ~1-2 s de latence. Vosk reste le défaut
+(offline, instantané).
 - **Vite** : zéro backend, APIs navigateur pures (getUserMedia, AudioWorklet),
   portage Electron direct. Le SSR de Next se battrait contre ces APIs
   browser-only.

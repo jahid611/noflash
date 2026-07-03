@@ -1,11 +1,18 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { DEFAULT_TRANSFORMERS_CDN } from '../../voice/whisperEngine';
 
 export interface SettingsState {
   /** KeyboardEvent.code de la touche push-to-talk. */
   pttKeyCode: string;
   /** Micro toujours actif au lieu du push-to-talk. */
   alwaysOn: boolean;
+  /** Moteur de reconnaissance : vosk (offline, grammaire) ou whisper (CDN, libre). */
+  sttEngine: 'vosk' | 'whisper';
+  /** Modèle Whisper (clé de WHISPER_MODELS). */
+  whisperModel: 'tiny' | 'base';
+  /** URL CDN de transformers.js (avancé — override si le chargement échoue). */
+  whisperCdnUrl: string;
   ttsEnabled: boolean;
   ttsLang: 'en-US' | 'fr-FR';
   /**
@@ -40,6 +47,9 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       pttKeyCode: 'KeyV',
       alwaysOn: false,
+      sttEngine: 'vosk',
+      whisperModel: 'tiny',
+      whisperCdnUrl: DEFAULT_TRANSFORMERS_CDN,
       ttsEnabled: false,
       ttsLang: 'fr-FR',
       rejectUnknown: false,
@@ -48,7 +58,7 @@ export const useSettingsStore = create<SettingsState>()(
       benchmarkTrials: 30,
       set: (patch) => set(patch),
     }),
-    { name: 'noflash:settings:v3' },
+    { name: 'noflash:settings:v4' },
   ),
 );
 

@@ -9,7 +9,9 @@ import {
   type ChampionRef,
   type ParserContext,
 } from '../../voice/parser';
-import { VoskEngine, type VoskRecognizerSession } from '../../voice/voskEngine';
+import type { SttEngine, SttSession } from '../../voice/stt';
+import { VoskEngine } from '../../voice/voskEngine';
+import { WhisperEngine, WHISPER_MODELS } from '../../voice/whisperEngine';
 import { resetCooldown, startCooldown } from './actions';
 import { addLog, addToast } from './logStore';
 import { manualProvider } from './runtime';
@@ -19,8 +21,14 @@ import { useSettingsStore } from './settingsStore';
 const TARGET_SAMPLE_RATE = 16000;
 /** Après le relâchement du PTT, on continue d'écouter un court instant pour attraper la fin du mot. */
 const RELEASE_GRACE_MS = 350;
-/** Si aucun résultat n'arrive après le flush, on déclare "rien capté". */
-const SILENCE_TIMEOUT_MS = 1400;
+
+/**
+ * Délai avant de déclarer « rien capté ». Whisper est asynchrone (transcription
+ * après le flush, ~1-2 s), donc on lui laisse plus de marge que vosk (streaming).
+ */
+function silenceTimeoutMs(): number {
+  return useSettingsStore.getState().sttEngine === 'whisper' ? 7000 : 1400;
+}
 
 export type VoicePhase = 'off' | 'starting' | 'ready' | 'error';
 
@@ -52,8 +60,8 @@ export interface UtteranceConsumer {
   onSilence?(): void;
 }
 
-let engine: VoskEngine | null = null;
-let session: VoskRecognizerSession | null = null;
+let engine: SttEngine | null = null;
+let session: SttSession | null = null;
 let audio: BrowserAudioInput | null = null;
 let hotkey: BrowserHotkey | null = null;
 let parserCtx: ParserContext | null = null;
@@ -140,9 +148,10 @@ function makeSession(): void {
   parserCtx = buildScopedParser(champs);
   lastGrammarKey = championsKey(champs);
   session?.dispose();
-  session = engine.createSession(grammar, TARGET_SAMPLE_RATE, {
-    onResult: handleFinalResult,
-    onPartial: onPartialResult,
+  session = engine.createSession({
+    grammar, // ignoré par Whisper (transcription libre)
+    sampleRate: TARGET_SAMPLE_RATE,
+    callbacks: { onResult: handleFinalResult, onPartial: onPartialResult },
   });
   useVoiceStore.setState({ grammarSize: grammar.length });
 }
@@ -177,8 +186,17 @@ export async function enableVoice(): Promise<void> {
   useVoiceStore.setState({ phase: 'starting', error: undefined });
   try {
     const settings = useSettingsStore.getState();
-    engine = await VoskEngine.load(settings.modelUrl);
-    // Grammaire fermée RESTREINTE aux champions actifs (voir buildScopedGrammar).
+    if (settings.sttEngine === 'whisper') {
+      addLog({ kind: 'info', detail: 'Chargement de Whisper (1er coup : télécharge le modèle)…' });
+      engine = await WhisperEngine.load(
+        WHISPER_MODELS[settings.whisperModel].id,
+        'french',
+        settings.whisperCdnUrl,
+      );
+    } else {
+      engine = await VoskEngine.load(settings.modelUrl);
+    }
+    // Grammaire fermée RESTREINTE aux champions actifs (vosk ; Whisper l'ignore).
     makeSession();
 
     audio = new BrowserAudioInput(TARGET_SAMPLE_RATE);
@@ -199,7 +217,10 @@ export async function enableVoice(): Promise<void> {
     });
     addLog({
       kind: 'info',
-      detail: `Voix activée — grammaire fermée de ${grammarSize} tokens (${champCount} champions)`,
+      detail:
+        settings.sttEngine === 'whisper'
+          ? `Voix activée — Whisper ${settings.whisperModel} (transcription libre, ${champCount} ennemis suivis)`
+          : `Voix activée — vosk, grammaire fermée de ${grammarSize} tokens (${champCount} champions)`,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -260,6 +281,14 @@ manualProvider.subscribe(() => {
 
 // Rebind à chaud quand la touche PTT ou le mode always-on change.
 useSettingsStore.subscribe((state, prev) => {
+  // Changer de moteur STT (ou de modèle Whisper) impose un rechargement complet.
+  if (
+    (state.sttEngine !== prev.sttEngine || state.whisperModel !== prev.whisperModel) &&
+    (useVoiceStore.getState().phase === 'ready' || useVoiceStore.getState().phase === 'starting')
+  ) {
+    void disableVoice().then(() => enableVoice());
+    return;
+  }
   if (useVoiceStore.getState().phase !== 'ready') return;
   if (state.pttKeyCode !== prev.pttKeyCode) bindHotkey();
   // Le rejet des sons inconnus change la grammaire → on recrée le recognizer.
@@ -277,6 +306,7 @@ function onPttDown(): void {
   if (useVoiceStore.getState().phase !== 'ready') return;
   if (useSettingsStore.getState().alwaysOn) return;
   clearPttTimers();
+  session?.reset(); // Whisper : nouveau buffer d'utterance
   gateOpen = true;
   pttDown = true;
   releaseAt = null;
@@ -299,7 +329,7 @@ function finalizeAndScheduleSilence(): void {
       addLog({ kind: 'silence', detail: 'Rien capté pendant l’écoute' });
       addToast('info', 'Rien capté');
     }
-  }, SILENCE_TIMEOUT_MS);
+  }, silenceTimeoutMs());
 }
 
 function onPttUp(): void {
@@ -318,6 +348,7 @@ export function pulseDesktopListen(): void {
   if (useVoiceStore.getState().phase !== 'ready') return;
   if (useSettingsStore.getState().alwaysOn) return; // déjà en écoute continue
   clearPttTimers();
+  session?.reset(); // Whisper : nouveau buffer d'utterance
   gateOpen = true;
   pttDown = false;
   releaseAt = null;

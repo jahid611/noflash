@@ -169,14 +169,28 @@ Les deux `.tar.gz` (FR ~44 Mo, EN ~40 Mo) sont **commités** dans `public/model/
 (temporairement, pour un déploiement/clone zéro-config). Pour les sortir du repo :
 voir `.gitignore`. `release/`, `dist/`, `node_modules/` sont ignorés.
 
-## 11. Piste d'escalade : Whisper
+## 11. Whisper (moteur STT alternatif) — FAIT, togglable
 
-Si le modèle FR ne suffit pas en jeu : brancher **Whisper** local via
-`@huggingface/transformers` (WASM, tourne en web ET Electron). Non fait car
-intestable en cloud (CDN HF + binaires onnxruntime bloqués). Ce serait un moteur
-STT togglable (vosk ⇄ whisper) derrière une interface `SttEngine`. Plus robuste
-au bruit/accent MAIS : pas de grammaire fermée (⇒ dépend du fuzzy), +latence,
-+100 Mo, install onnxruntime capricieuse. À ne faire QUE si le FR échoue en test.
+Interface commune `src/voice/stt.ts` (`SttEngine`/`SttSession`) : vosk et
+Whisper sont interchangeables. Réglages → « Moteur de reconnaissance » (vosk ⇄
+whisper) ; changer recharge la voix à chaud. `src/voice/whisperEngine.ts` :
+
+- transformers.js chargé **depuis un CDN au runtime** (`import(/* @vite-ignore */
+  url)`) → **AUCUNE dépendance npm** (évite l'enfer `onnxruntime-node`), non
+  bundlé, marche en web ET Electron. URL configurable (Réglages, avancé) si la
+  route CDN change ; défaut `DEFAULT_TRANSFORMERS_CDN`. Alternatives si échec :
+  `…@3.0.2/+esm` ou `…/dist/transformers.min.js`.
+- Bufferise l'audio 16 kHz pendant l'écoute, transcrit au `flush` (asynchrone) →
+  `silenceTimeoutMs()` monte à 7 s en mode whisper. `session.reset()` vide le
+  buffer à chaque ouverture de gate.
+- Modèles : `whisper-tiny` (~40 Mo) / `whisper-base` (~150 Mo), langue forcée FR.
+- Transcription **libre** (pas de grammaire) → c'est le parser phonétique qui
+  relie au champion. Couvre donc TOUT le roster, contrairement aux
+  `FRENCH_ALIASES` vosk (curés).
+
+⚠️ **Non testé en vrai** (CDN HF + micro absents du cloud) : vérifier chez
+l'utilisateur. 1er chargement = réseau requis (modèle mis en cache ensuite) ;
+vosk reste le défaut 100 % offline. Latence Whisper ~1-2 s/commande.
 
 ## 12. Conventions
 

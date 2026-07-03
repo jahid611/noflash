@@ -1,30 +1,26 @@
 import type { KaldiRecognizer, Model } from 'vosk-browser';
+import type { SttEngine, SttSession, SttSessionOptions } from './stt';
 
 /**
- * Wrapper fin autour de vosk-browser. Zéro import React/DOM : le modèle est
- * chargé par URL, l'audio arrive en Float32Array déjà rééchantillonné (voir
- * audio/BrowserAudioInput), les résultats sortent par callbacks.
- *
- * vosk-browser (WASM inliné, ~6 Mo) est importé dynamiquement : il n'est
- * téléchargé qu'à l'activation de la voix, pas au chargement de l'app.
+ * Wrapper vosk-browser implémentant SttEngine. Zéro import React/DOM : le modèle
+ * est chargé par URL, l'audio arrive en Float32Array 16 kHz, les résultats
+ * sortent par callbacks. vosk-browser (WASM, ~6 Mo) est importé dynamiquement.
  */
-export interface RecognizerCallbacks {
-  onResult(text: string): void;
-  onPartial?(text: string): void;
-}
-
 function extractText(message: unknown, field: 'text' | 'partial'): string {
   const m = message as { result?: Record<string, unknown> } | undefined;
   const value = m?.result?.[field];
   return typeof value === 'string' ? value.trim() : '';
 }
 
-export class VoskRecognizerSession {
+class VoskSession implements SttSession {
   constructor(private readonly recognizer: KaldiRecognizer) {}
 
   acceptChunk(samples: Float32Array, sampleRate: number): void {
     this.recognizer.acceptWaveformFloat(samples, sampleRate);
   }
+
+  /** vosk streame en continu et se ré-arme seul après un final → no-op. */
+  reset(): void {}
 
   /** Force la finalisation du segment en cours (fin de push-to-talk). */
   flush(): void {
@@ -36,7 +32,7 @@ export class VoskRecognizerSession {
   }
 }
 
-export class VoskEngine {
+export class VoskEngine implements SttEngine {
   private constructor(private readonly model: Model) {}
 
   static async load(modelUrl: string): Promise<VoskEngine> {
@@ -46,25 +42,21 @@ export class VoskEngine {
   }
 
   /**
-   * Crée un recognizer contraint par la grammaire fermée : le JSON array de
-   * mots est passé au KaldiRecognizer, qui ne reconnaîtra rien d'autre.
+   * Recognizer contraint par la grammaire fermée : le JSON array de mots est
+   * passé au KaldiRecognizer, qui ne reconnaîtra rien d'autre.
    */
-  createSession(
-    grammarWords: string[],
-    sampleRate: number,
-    callbacks: RecognizerCallbacks,
-  ): VoskRecognizerSession {
+  createSession(opts: SttSessionOptions): SttSession {
     const recognizer = new this.model.KaldiRecognizer(
-      sampleRate,
-      JSON.stringify(grammarWords),
+      opts.sampleRate,
+      JSON.stringify(opts.grammar ?? []),
     );
     recognizer.on('result', (message: unknown) => {
-      callbacks.onResult(extractText(message, 'text'));
+      opts.callbacks.onResult(extractText(message, 'text'));
     });
     recognizer.on('partialresult', (message: unknown) => {
-      callbacks.onPartial?.(extractText(message, 'partial'));
+      opts.callbacks.onPartial?.(extractText(message, 'partial'));
     });
-    return new VoskRecognizerSession(recognizer);
+    return new VoskSession(recognizer);
   }
 
   terminate(): void {
