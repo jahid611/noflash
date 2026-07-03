@@ -21,27 +21,19 @@ Prérequis : Node 18+.
 npm install
 ```
 
-### Télécharger le modèle vosk (obligatoire pour la voix)
+### Modèles vosk (déjà bundlés)
 
-Le modèle n'est **pas commité** (~40 Mo). vosk-browser attend un `.tar.gz`.
+Deux modèles sont commités dans `public/model/` (~40 et ~44 Mo) — rien à
+télécharger :
 
-**Option A — tar.gz prêt à l'emploi** (modèles hébergés par la démo officielle
-vosk-browser) :
+- **Français** (`vosk-model-small-fr-pguyot-0.3`) — **le défaut**, recommandé
+  pour un locuteur FR.
+- **English** (`vosk-model-small-en-us-0.15`).
 
-```bash
-curl -L -o public/model/vosk-model-small-en-us-0.15.tar.gz \
-  https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz
-```
-
-**Option B — depuis le site officiel vosk** (zip à réempaqueter en tar.gz) :
-
-```bash
-curl -L -o /tmp/model.zip https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
-unzip /tmp/model.zip -d /tmp
-tar -czf public/model/vosk-model-small-en-us-0.15.tar.gz -C /tmp vosk-model-small-en-us-0.15
-```
-
-Une autre URL/chemin de modèle peut être configurée dans **Réglages**.
+On change de langue dans **Réglages → Langue du modèle vocal** (puis réactiver
+la voix). Pour pointer vers un autre `.tar.gz`, le champ « URL du modèle
+(avancé) » reste dispo. Ces `.tar.gz` sont commités temporairement pour un
+déploiement zéro-config ; pour les sortir du repo, voir `.gitignore`.
 
 ### Lancer
 
@@ -83,14 +75,23 @@ outil qui ment est pire que pas d'outil.
   La Web Speech API est online (serveurs Google), sans grammaire custom, et
   n'existera pas dans le produit final → la tester ne validerait rien.
 
-  ⚠️ **Point critique de fiabilité** : la grammaire est restreinte aux **seuls
-  champions actifs** — les 5 ennemis sélectionnés en jeu (ou le set de champions
-  du benchmark), pas les 165 du roster ddragon. vosk ne doit distinguer que ~20
-  tokens au lieu de ~250 : avec un accent FR sur des noms fantasy, c'est la
-  différence entre inutilisable et fiable. Le recognizer est reconstruit à chaud
-  quand la composition d'équipe change. Un **rattrapage phonétique** (Levenshtein
-  ≤ 1 lettre) dans le parser récupère en plus les quasi-erreurs (« set » → Sett,
-  « ari » → Ahri) sans jamais lancer un timer sur un mot au hasard.
+Trois leviers de fiabilité, dans l'ordre d'impact :
+
+1. **Modèle acoustique dans TA langue** (défaut : **français**,
+   `vosk-model-small-fr-pguyot-0.3`). Un locuteur FR qui dit « Malphite »
+   (mal-fite) est incompréhensible pour un modèle anglais : ses phonèmes ne
+   collent pas. Le modèle FR prononce les noms de champions avec les règles
+   françaises → il colle à ta voix. Réglages → « Langue du modèle vocal »
+   (English dispo aussi). C'est le plus gros levier.
+2. **Grammaire restreinte aux champions actifs** — les 5 ennemis sélectionnés
+   (ou le set benchmark), pas les 165 du roster : ~20 tokens au lieu de ~250.
+   Reconstruite à chaud quand l'équipe change. **Sans `[unk]` par défaut** :
+   vosk est alors OBLIGÉ de sortir le champion le plus proche au lieu de
+   répondre « inconnu » (toggle « Anti-bruit strict » dans les Réglages pour le
+   réactiver).
+3. **Rattrapage phonétique** (Levenshtein ≤ 1) dans le parser : récupère les
+   quasi-erreurs (« set » → Sett) sans jamais lancer un timer au hasard. Le
+   vocabulaire de mots-clés inclut les variantes FR d'usage (« ulti » → ult).
 - **Vite** : zéro backend, APIs navigateur pures (getUserMedia, AudioWorklet),
   portage Electron direct. Le SSR de Next se battrait contre ces APIs
   browser-only.

@@ -22,7 +22,12 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { addToast } from '@/ui/state/logStore';
 import { championService } from '@/ui/state/runtime';
-import { DEFAULT_MODEL_URL, keyCodeLabel, useSettingsStore } from '@/ui/state/settingsStore';
+import {
+  DEFAULT_MODEL_URL,
+  MODEL_PRESETS,
+  keyCodeLabel,
+  useSettingsStore,
+} from '@/ui/state/settingsStore';
 import { disableVoice, useVoiceStore } from '@/ui/state/voiceRuntime';
 
 function Row({
@@ -150,8 +155,38 @@ export function SettingsView() {
         </Row>
 
         <Row
-          label="URL du modèle vosk"
-          hint="Fichier .tar.gz servi depuis public/model/ — voir README"
+          label="Langue du modèle vocal"
+          hint="Français recommandé pour un locuteur FR : le modèle acoustique colle à ta prononciation (fin des « Malphite → [unk] »). Réactive la voix après changement."
+        >
+          <Select
+            value={
+              settings.modelUrl === MODEL_PRESETS.en.url
+                ? 'en'
+                : settings.modelUrl === MODEL_PRESETS.fr.url
+                  ? 'fr'
+                  : 'custom'
+            }
+            onValueChange={(v) => {
+              if (v === 'fr' || v === 'en') settings.set({ modelUrl: MODEL_PRESETS[v].url });
+            }}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="fr">🇫🇷 {MODEL_PRESETS.fr.label}</SelectItem>
+              <SelectItem value="en">🇬🇧 {MODEL_PRESETS.en.label}</SelectItem>
+              {settings.modelUrl !== MODEL_PRESETS.fr.url &&
+                settings.modelUrl !== MODEL_PRESETS.en.url && (
+                  <SelectItem value="custom">URL personnalisée</SelectItem>
+                )}
+            </SelectContent>
+          </Select>
+        </Row>
+
+        <Row
+          label="URL du modèle (avancé)"
+          hint="Override manuel du .tar.gz vosk servi depuis public/model/ — voir README"
           htmlFor="model-url"
         >
           <Input

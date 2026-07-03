@@ -16,13 +16,24 @@ export interface SettingsState {
   rejectUnknown: boolean;
   /** Flag expérimental : fenêtre de recast des ults à charges (§5). */
   chargeTracking: boolean;
+  /** URL du modèle vosk chargé (dérivée d'un preset de langue, ou custom). */
   modelUrl: string;
   benchmarkTrials: number;
 
   set(patch: Partial<SettingsState>): void;
 }
 
-export const DEFAULT_MODEL_URL = '/model/vosk-model-small-en-us-0.15.tar.gz';
+/**
+ * Presets de modèles vosk bundlés. ⚠️ Le modèle FRANÇAIS est le défaut : pour un
+ * locuteur FR, le modèle acoustique français colle infiniment mieux aux
+ * phonèmes réels (« Malphite » dit à la française) que le modèle anglais.
+ */
+export const MODEL_PRESETS = {
+  fr: { label: 'Français', url: '/model/vosk-model-small-fr-pguyot-0.3.tar.gz' },
+  en: { label: 'English', url: '/model/vosk-model-small-en-us-0.15.tar.gz' },
+} as const;
+
+export const DEFAULT_MODEL_URL = MODEL_PRESETS.fr.url;
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
@@ -30,14 +41,14 @@ export const useSettingsStore = create<SettingsState>()(
       pttKeyCode: 'KeyV',
       alwaysOn: false,
       ttsEnabled: false,
-      ttsLang: 'en-US',
+      ttsLang: 'fr-FR',
       rejectUnknown: false,
       chargeTracking: false,
       modelUrl: DEFAULT_MODEL_URL,
       benchmarkTrials: 30,
       set: (patch) => set(patch),
     }),
-    { name: 'noflash:settings:v2' },
+    { name: 'noflash:settings:v3' },
   ),
 );
 
