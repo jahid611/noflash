@@ -85,6 +85,8 @@ outil qui ment est pire que pas d'outil.
 - **Vite** : zéro backend, APIs navigateur pures (getUserMedia, AudioWorklet),
   portage Electron direct. Le SSR de Next se battrait contre ces APIs
   browser-only.
+- **UI** : React + Tailwind + **shadcn/ui** (Radix primitives, sonner pour les
+  toasts), thème dark-only compact, feeling overlay dès maintenant.
 
 ## Mode Benchmark
 
@@ -118,8 +120,16 @@ src/
   data/        # fetch ddragon + cache localStorage + dataset fallback
   timers/      # store/logique des timers (PUR)
   ui/          # React : TeamSetup, TimerBoard, TranscriptPanel, BenchmarkMode, Settings
+  components/  # composants shadcn/ui (button, card, tabs, select, sonner…)
+  lib/         # cn() et utilitaires UI
 public/model/  # modèle vosk (téléchargé par l'utilisateur, voir plus haut)
 ```
+
+Le front est entièrement en **shadcn/ui** (style new-york, Radix + Tailwind,
+thème dark via variables CSS, toasts sonner). Le registry n'étant pas
+accessible depuis l'environnement de build, les composants sont vendorisés
+dans `src/components/ui/` — `components.json` est en place pour que
+`npx shadcn add <composant>` fonctionne normalement en local.
 
 **Règle d'or portage Electron** : `voice/`, `cooldowns/`, `timers/`, `game/`
 sont des modules purs — zéro import React ou DOM. Vérifié mécaniquement par

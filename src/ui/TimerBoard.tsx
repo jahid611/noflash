@@ -1,13 +1,28 @@
 import { useState } from 'react';
 import { useStore } from 'zustand';
-import type { SpellKey, SummonerSpellKey, UltRank } from '../cooldowns/types';
-import { ultRankForLevel } from '../cooldowns/ults';
-import type { EnemyConfig } from '../game/types';
-import { formatMMSS, remainingSeconds, timerKey } from '../timers/engine';
-import { ChampionIcon } from './ChampionIcon';
-import { SPELL_LABEL, resetCooldown, startCooldown } from './state/actions';
-import { manualProvider, timerEngine } from './state/runtime';
-import { useNow } from './state/useNow';
+import { Pencil, Settings2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Toggle } from '@/components/ui/toggle';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+import type { SpellKey, SummonerSpellKey, UltRank } from '@/cooldowns/types';
+import { ultRankForLevel } from '@/cooldowns/ults';
+import type { EnemyConfig } from '@/game/types';
+import { formatMMSS, remainingSeconds, timerKey } from '@/timers/engine';
+import { ChampionIcon } from '@/ui/ChampionIcon';
+import { SPELL_LABEL, resetCooldown, startCooldown } from '@/ui/state/actions';
+import { manualProvider, timerEngine } from '@/ui/state/runtime';
+import { useNow } from '@/ui/state/useNow';
 
 /** En dessous de ce reliquat, le timer passe "bientôt prêt" (jaune). */
 const SOON_THRESHOLD_S = 15;
@@ -34,26 +49,34 @@ function TimerChip({ enemy, spell, now }: { enemy: EnemyConfig; spell: SpellKey;
     else startCooldown(enemy, spell, { source: 'click' });
   };
 
-  const style = running
-    ? soon
-      ? 'border-amber-400/60 bg-amber-400/10 text-amber-300 animate-pulse'
-      : 'border-red-500/50 bg-red-500/10 text-red-300'
-    : 'border-emerald-500/40 bg-emerald-500/5 text-emerald-300 hover:bg-emerald-500/15';
-
   return (
-    <button
-      onClick={onClick}
-      title={running ? 'Clic : reset (récupéré)' : 'Clic : démarrer le cooldown'}
-      className={`flex min-w-[86px] flex-col items-center rounded-lg border px-2.5 py-1.5 transition ${style}`}
-    >
-      <span className="text-[10px] font-bold uppercase tracking-wider opacity-75">
-        {SPELL_LABEL[spell]}
-        {timer?.approximate && ' ~'}
-      </span>
-      <span className="font-mono text-base font-bold tabular-nums leading-tight">
-        {running ? formatMMSS(remaining) : 'UP'}
-      </span>
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="outline"
+          onClick={onClick}
+          className={cn(
+            'flex h-auto min-w-[86px] flex-col items-center px-2.5 py-1.5',
+            running
+              ? soon
+                ? 'animate-pulse border-amber-400/60 bg-amber-400/10 text-amber-300 hover:bg-amber-400/15 hover:text-amber-200'
+                : 'border-red-500/50 bg-red-500/10 text-red-300 hover:bg-red-500/15 hover:text-red-200'
+              : 'border-emerald-500/40 bg-emerald-500/5 text-emerald-300 hover:bg-emerald-500/15 hover:text-emerald-200',
+          )}
+        >
+          <span className="text-[10px] font-bold uppercase tracking-wider opacity-75">
+            {SPELL_LABEL[spell]}
+            {timer?.approximate && ' ~'}
+          </span>
+          <span className="font-mono text-base font-bold tabular-nums leading-tight">
+            {running ? formatMMSS(remaining) : 'UP'}
+          </span>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>
+        {running ? 'Clic : reset (récupéré)' : 'Clic : démarrer le cooldown'}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -78,48 +101,70 @@ function EnemyRow({ enemy, now }: { enemy: EnemyConfig; now: number }) {
     update({ ultRank: (enemy.ultRank === 3 ? 1 : enemy.ultRank + 1) as UltRank });
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60">
+    <Card className="bg-card/60">
       <div className="flex flex-wrap items-center gap-3 p-2.5">
         <ChampionIcon championId={enemy.championId} name={enemy.championName} size={44} />
-        <div className="min-w-[90px]">
+        <div className="min-w-[100px]">
           <p className="text-sm font-bold leading-tight">{enemy.championName}</p>
           <div className="mt-1 flex items-center gap-1">
-            <button
-              onClick={() => update({ hasIonianBoots: !enemy.hasIonianBoots })}
-              title="Bottes Ioniennes de Lucidité (summoner + ability haste)"
-              className={`rounded border px-1.5 py-0.5 text-[10px] font-bold ${
-                enemy.hasIonianBoots
-                  ? 'border-sky-400/60 bg-sky-400/15 text-sky-300'
-                  : 'border-zinc-700 text-zinc-500 hover:border-zinc-500'
-              }`}
-            >
-              👢
-            </button>
-            <button
-              onClick={() => update({ hasCosmicInsight: !enemy.hasCosmicInsight })}
-              title="Cosmic Insight (summoner haste — rune, jamais auto-détectable)"
-              className={`rounded border px-1.5 py-0.5 text-[10px] font-bold ${
-                enemy.hasCosmicInsight
-                  ? 'border-violet-400/60 bg-violet-400/15 text-violet-300'
-                  : 'border-zinc-700 text-zinc-500 hover:border-zinc-500'
-              }`}
-            >
-              🔮
-            </button>
-            <button
-              onClick={cycleRank}
-              title="Rang de l'ult (défaut 1, ajustable)"
-              className="rounded border border-zinc-700 px-1.5 py-0.5 text-[10px] font-bold text-zinc-300 hover:border-zinc-500"
-            >
-              R{enemy.ultRank}
-            </button>
-            <button
-              onClick={() => setExpanded((v) => !v)}
-              title="Détails (niveau, haste manuel, 2e summoner)"
-              className="rounded border border-zinc-700 px-1.5 py-0.5 text-[10px] text-zinc-400 hover:border-zinc-500"
-            >
-              ⚙
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Toggle
+                  size="sm"
+                  variant="outline"
+                  pressed={enemy.hasIonianBoots}
+                  onPressedChange={(v) => update({ hasIonianBoots: v })}
+                  className="h-6 min-w-0 px-1.5 text-[11px] data-[state=on]:border-sky-400/60 data-[state=on]:bg-sky-400/15 data-[state=on]:text-sky-300"
+                >
+                  👢
+                </Toggle>
+              </TooltipTrigger>
+              <TooltipContent>
+                Bottes Ioniennes de Lucidité (summoner + ability haste)
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Toggle
+                  size="sm"
+                  variant="outline"
+                  pressed={enemy.hasCosmicInsight}
+                  onPressedChange={(v) => update({ hasCosmicInsight: v })}
+                  className="h-6 min-w-0 px-1.5 text-[11px] data-[state=on]:border-violet-400/60 data-[state=on]:bg-violet-400/15 data-[state=on]:text-violet-300"
+                >
+                  🔮
+                </Toggle>
+              </TooltipTrigger>
+              <TooltipContent>
+                Cosmic Insight (summoner haste — rune, jamais auto-détectable)
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={cycleRank}
+                  className="h-6 px-1.5 text-[11px] font-bold"
+                >
+                  R{enemy.ultRank}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Rang de l'ult (défaut 1, ajustable)</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setExpanded((v) => !v)}
+                  className="h-6 px-1.5"
+                >
+                  <Settings2 className="!size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Détails (niveau, haste manuel, 2e summoner)</TooltipContent>
+            </Tooltip>
           </div>
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
@@ -130,10 +175,12 @@ function EnemyRow({ enemy, now }: { enemy: EnemyConfig; now: number }) {
       </div>
 
       {expanded && (
-        <div className="flex flex-wrap items-end gap-4 border-t border-zinc-800 px-3 py-2 text-xs">
-          <label className="flex flex-col gap-1 text-zinc-400">
-            Niveau (TP + rang d'ult inféré)
-            <input
+        <div className="flex flex-wrap items-end gap-4 border-t px-3 py-2.5">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">
+              Niveau (TP + rang d'ult inféré)
+            </Label>
+            <Input
               type="number"
               min={1}
               max={18}
@@ -142,49 +189,53 @@ function EnemyRow({ enemy, now }: { enemy: EnemyConfig; now: number }) {
                 const level = Number(e.target.value) || 1;
                 update({ level, ultRank: ultRankForLevel(level) });
               }}
-              className="w-20 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-100"
+              className="h-8 w-20"
             />
-          </label>
-          <label className="flex flex-col gap-1 text-zinc-400">
-            Summoner haste manuel
-            <input
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Summoner haste manuel</Label>
+            <Input
               type="number"
               min={0}
               value={enemy.extraSummonerHaste}
               onChange={(e) => update({ extraSummonerHaste: Number(e.target.value) || 0 })}
-              className="w-20 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-100"
+              className="h-8 w-20"
             />
-          </label>
-          <label className="flex flex-col gap-1 text-zinc-400">
-            Ability haste manuel (ult)
-            <input
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Ability haste manuel (ult)</Label>
+            <Input
               type="number"
               min={0}
               value={enemy.extraAbilityHaste}
               onChange={(e) => update({ extraAbilityHaste: Number(e.target.value) || 0 })}
-              className="w-20 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-100"
+              className="h-8 w-20"
             />
-          </label>
-          <label className="flex flex-col gap-1 text-zinc-400">
-            2e summoner suivi
-            <select
-              value={enemy.secondSummoner ?? ''}
-              onChange={(e) =>
-                update({ secondSummoner: (e.target.value || null) as SummonerSpellKey | null })
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">2e summoner suivi</Label>
+            <Select
+              value={enemy.secondSummoner ?? 'none'}
+              onValueChange={(v) =>
+                update({ secondSummoner: v === 'none' ? null : (v as SummonerSpellKey) })
               }
-              className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-100"
             >
-              <option value="">—</option>
-              {SECOND_SUMMONERS.map((s) => (
-                <option key={s} value={s}>
-                  {SPELL_LABEL[s]}
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectTrigger className="h-8 w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">—</SelectItem>
+                {SECOND_SUMMONERS.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {SPELL_LABEL[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -195,20 +246,17 @@ export function TimerBoard({ onEditTeam }: { onEditTeam: () => void }) {
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-400">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
           Cooldowns ennemis
         </h2>
-        <button
-          onClick={onEditTeam}
-          className="rounded-lg border border-zinc-700 px-3 py-1 text-xs text-zinc-300 hover:border-zinc-500"
-        >
-          Modifier l'équipe
-        </button>
+        <Button variant="outline" size="sm" onClick={onEditTeam}>
+          <Pencil /> Modifier l'équipe
+        </Button>
       </div>
       {enemies.map((enemy) => (
         <EnemyRow key={enemy.championId} enemy={enemy} now={now} />
       ))}
-      <p className="pt-1 text-[11px] leading-relaxed text-zinc-600">
+      <p className="pt-1 text-[11px] leading-relaxed text-muted-foreground/70">
         Voix : « ahri no flash », « zed no ult », « lucian flash up »… Clic sur un
         chip = start/reset manuel. 👢/🔮 = haste (défaut : worst case 0 haste). ~ =
         valeur approximative.

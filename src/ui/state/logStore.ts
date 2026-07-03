@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { Intent } from '../../voice/types';
+import { toast } from 'sonner';
+import type { Intent } from '@/voice/types';
 
 export type LogKind = 'intent' | 'unrecognized' | 'silence' | 'info' | 'error';
 
@@ -34,26 +35,12 @@ export function addLog(entry: Omit<LogEntry, 'id' | 'at'>): void {
 
 export type ToastKind = 'success' | 'error' | 'info';
 
-export interface Toast {
-  id: number;
-  kind: ToastKind;
-  title: string;
-  sub?: string;
-}
-
-interface ToastState {
-  toasts: Toast[];
-}
-
 const TOAST_TTL_MS = 2800;
-let nextToastId = 1;
 
-export const useToastStore = create<ToastState>(() => ({ toasts: [] }));
-
+/** Confirmations visuelles (§9) via sonner — grosses, centrées, jamais silencieuses. */
 export function addToast(kind: ToastKind, title: string, sub?: string): void {
-  const id = nextToastId++;
-  useToastStore.setState((s) => ({ toasts: [...s.toasts, { id, kind, title, sub }] }));
-  setTimeout(() => {
-    useToastStore.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
-  }, TOAST_TTL_MS);
+  const options = { description: sub, duration: TOAST_TTL_MS };
+  if (kind === 'success') toast.success(title, options);
+  else if (kind === 'error') toast.error(title, options);
+  else toast.info(title, options);
 }

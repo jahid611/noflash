@@ -1,14 +1,36 @@
 import { useEffect, useMemo } from 'react';
-import { computeMetrics } from './benchmark/metrics';
-import { exportCsv, exportJson } from './benchmark/exporters';
+import { Download, Play, RotateCcw, SkipForward } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+import { computeMetrics } from '@/ui/benchmark/metrics';
+import { exportCsv, exportJson } from '@/ui/benchmark/exporters';
 import {
   skipTrial,
   startBenchmark,
   stopBenchmark,
   useBenchStore,
-} from './benchmark/benchStore';
-import { keyCodeLabel, useSettingsStore } from './state/settingsStore';
-import { useVoiceStore } from './state/voiceRuntime';
+} from '@/ui/benchmark/benchStore';
+import { keyCodeLabel, useSettingsStore } from '@/ui/state/settingsStore';
+import { useVoiceStore } from '@/ui/state/voiceRuntime';
 
 const GROUP_LABEL: Record<string, string> = {
   short: 'Noms courts',
@@ -23,12 +45,14 @@ function pct(v: number): string {
 
 function MetricTile({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
-      <p className="text-[11px] uppercase tracking-wider text-zinc-500">{label}</p>
-      <p className={`mt-1 text-2xl font-black tabular-nums ${accent ? 'text-amber-300' : ''}`}>
-        {value}
-      </p>
-    </div>
+    <Card className="bg-card/60">
+      <CardContent className="p-3">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className={cn('mt-1 text-2xl font-black tabular-nums', accent && 'text-primary')}>
+          {value}
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -53,45 +77,49 @@ export function BenchmarkMode() {
 
   if (status === 'idle') {
     return (
-      <section className="mx-auto max-w-xl space-y-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-6">
-        <h2 className="text-lg font-black">Benchmark de reconnaissance</h2>
-        <p className="text-sm leading-relaxed text-zinc-400">
-          L'app affiche une commande cible, tu la dis au micro (PTT{' '}
-          <b>[{keyCodeLabel(settings.pttKeyCode)}]</b>). Chaque essai enregistre :
-          capté ? bon champion ? bon spell ? latence (fin de parole → intent). Le
-          set stresse volontairement les cas durs : noms courts, apostrophes,
-          nicknames.
-        </p>
-        <p className="rounded-lg border border-amber-400/40 bg-amber-400/5 px-3 py-2 text-sm font-semibold text-amber-300">
-          🎯 Objectif : ≥ 90 % de reco sur ce set. En dessous, l'hypothèse voix est
-          invalidée — et on le sait sans avoir codé l'overlay.
-        </p>
-        {voicePhase !== 'ready' && (
-          <p className="text-sm text-red-300">
-            ⚠ Active d'abord la voix (bouton en haut à droite). La saisie manuelle
-            du panneau Transcript marche aussi pour tester le pipeline.
+      <Card className="mx-auto max-w-xl">
+        <CardHeader>
+          <CardTitle className="text-lg font-black">Benchmark de reconnaissance</CardTitle>
+          <CardDescription className="leading-relaxed">
+            L'app affiche une commande cible, tu la dis au micro (PTT{' '}
+            <b>[{keyCodeLabel(settings.pttKeyCode)}]</b>). Chaque essai enregistre :
+            capté ? bon champion ? bon spell ? latence (fin de parole → intent). Le
+            set stresse volontairement les cas durs : noms courts, apostrophes,
+            nicknames.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary">
+            🎯 Objectif : ≥ 90 % de reco sur ce set. En dessous, l'hypothèse voix est
+            invalidée — et on le sait sans avoir codé l'overlay.
           </p>
-        )}
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-zinc-400">
-            Essais
-            <input
-              type="number"
-              min={5}
-              max={200}
-              value={settings.benchmarkTrials}
-              onChange={(e) => settings.set({ benchmarkTrials: Number(e.target.value) || 30 })}
-              className="w-20 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-100"
-            />
-          </label>
-          <button
-            onClick={() => startBenchmark(settings.benchmarkTrials)}
-            className="rounded-lg border border-amber-400/60 bg-amber-400/10 px-5 py-2 text-sm font-bold text-amber-300 hover:bg-amber-400/20"
-          >
-            Démarrer
-          </button>
-        </div>
-      </section>
+          {voicePhase !== 'ready' && (
+            <p className="text-sm text-red-300">
+              ⚠ Active d'abord la voix (bouton en haut à droite). La saisie manuelle
+              du panneau Transcript marche aussi pour tester le pipeline.
+            </p>
+          )}
+          <div className="flex items-end gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="trials" className="text-sm text-muted-foreground">
+                Essais
+              </Label>
+              <Input
+                id="trials"
+                type="number"
+                min={5}
+                max={200}
+                value={settings.benchmarkTrials}
+                onChange={(e) => settings.set({ benchmarkTrials: Number(e.target.value) || 30 })}
+                className="w-24"
+              />
+            </div>
+            <Button onClick={() => startBenchmark(settings.benchmarkTrials)}>
+              <Play /> Démarrer
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -99,45 +127,51 @@ export function BenchmarkMode() {
     const spec = plan[current];
     return (
       <section className="mx-auto max-w-xl space-y-4">
-        <div className="flex items-center justify-between text-sm text-zinc-400">
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>
-            Essai <b className="text-zinc-100">{current + 1}</b> / {plan.length}
+            Essai <b className="text-foreground">{current + 1}</b> / {plan.length}
           </span>
-          <button onClick={stopBenchmark} className="text-zinc-500 underline hover:text-zinc-300">
+          <Button variant="link" size="sm" onClick={stopBenchmark} className="text-muted-foreground">
             Abandonner
-          </button>
+          </Button>
         </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-8 text-center">
-          <p className="text-sm text-zinc-500">
-            Maintiens [{keyCodeLabel(settings.pttKeyCode)}] et dis :
-          </p>
-          <p className="mt-3 text-4xl font-black tracking-tight text-amber-300">
-            « {spec.command} »
-          </p>
-          <p className="mt-2 text-xs text-zinc-600">
-            {GROUP_LABEL[spec.group]} — attendu : {spec.championName} ·{' '}
-            {spec.spell === 'flash' ? 'Flash' : 'Ult'}
-          </p>
-          <p className="mt-4 h-5 font-mono text-sm text-zinc-400">{partial}</p>
-          <button
-            onClick={skipTrial}
-            className="mt-4 rounded-lg border border-zinc-700 px-3 py-1 text-xs text-zinc-400 hover:border-zinc-500"
-          >
-            Passer (compté comme échec)
-          </button>
-        </div>
+        <Card>
+          <CardContent className="p-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              Maintiens [{keyCodeLabel(settings.pttKeyCode)}] et dis :
+            </p>
+            <p className="mt-3 text-4xl font-black tracking-tight text-primary">
+              « {spec.command} »
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {GROUP_LABEL[spec.group]} — attendu : {spec.championName} ·{' '}
+              {spec.spell === 'flash' ? 'Flash' : 'Ult'}
+            </p>
+            <p className="mt-4 h-5 font-mono text-sm text-muted-foreground">{partial}</p>
+            <Button variant="outline" size="sm" onClick={skipTrial} className="mt-4">
+              <SkipForward /> Passer (compté comme échec)
+            </Button>
+          </CardContent>
+        </Card>
         {lastResult && (
-          <div
-            className={`rounded-xl border px-4 py-2.5 text-sm ${
+          <Card
+            className={cn(
               lastResult.intentOk
-                ? 'border-emerald-500/40 bg-emerald-500/5 text-emerald-300'
-                : 'border-red-500/40 bg-red-500/5 text-red-300'
-            }`}
+                ? 'border-emerald-500/40 bg-emerald-500/5'
+                : 'border-red-500/40 bg-red-500/5',
+            )}
           >
-            {lastResult.intentOk ? '✅' : '❌'} #{lastResult.index} « {lastResult.command} » —
-            entendu : <span className="font-mono">« {lastResult.transcript || '∅' } »</span>
-            {typeof lastResult.latencyMs === 'number' && ` · ${lastResult.latencyMs} ms`}
-          </div>
+            <CardContent
+              className={cn(
+                'px-4 py-2.5 text-sm',
+                lastResult.intentOk ? 'text-emerald-300' : 'text-red-300',
+              )}
+            >
+              {lastResult.intentOk ? '✅' : '❌'} #{lastResult.index} « {lastResult.command} » —
+              entendu : <span className="font-mono">« {lastResult.transcript || '∅'} »</span>
+              {typeof lastResult.latencyMs === 'number' && ` · ${lastResult.latencyMs} ms`}
+            </CardContent>
+          </Card>
         )}
       </section>
     );
@@ -149,39 +183,34 @@ export function BenchmarkMode() {
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-black">Résultats — {metrics?.n} essais</h2>
         {metrics && (
-          <span
-            className={`rounded-lg border px-3 py-1 text-sm font-black ${
+          <Badge
+            variant="outline"
+            className={cn(
+              'px-3 py-1 text-sm font-black',
               metrics.recoRate >= 0.9
                 ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300'
-                : 'border-red-500/50 bg-red-500/10 text-red-300'
-            }`}
+                : 'border-red-500/50 bg-red-500/10 text-red-300',
+            )}
           >
-            {metrics.recoRate >= 0.9 ? '🎯 Objectif ≥ 90 % atteint' : '💀 < 90 % — hypothèse invalidée'}
-          </span>
+            {metrics.recoRate >= 0.9
+              ? '🎯 Objectif ≥ 90 % atteint'
+              : '💀 < 90 % — hypothèse invalidée'}
+          </Badge>
         )}
         <div className="ml-auto flex gap-2">
           {metrics && (
             <>
-              <button
-                onClick={() => exportJson(results, metrics)}
-                className="rounded-lg border border-zinc-700 px-3 py-1 text-xs text-zinc-300 hover:border-zinc-500"
-              >
-                Export JSON
-              </button>
-              <button
-                onClick={() => exportCsv(results)}
-                className="rounded-lg border border-zinc-700 px-3 py-1 text-xs text-zinc-300 hover:border-zinc-500"
-              >
-                Export CSV
-              </button>
+              <Button variant="outline" size="sm" onClick={() => exportJson(results, metrics)}>
+                <Download /> JSON
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => exportCsv(results)}>
+                <Download /> CSV
+              </Button>
             </>
           )}
-          <button
-            onClick={() => startBenchmark(settings.benchmarkTrials)}
-            className="rounded-lg border border-amber-400/60 bg-amber-400/10 px-3 py-1 text-xs font-bold text-amber-300 hover:bg-amber-400/20"
-          >
-            Relancer
-          </button>
+          <Button size="sm" onClick={() => startBenchmark(settings.benchmarkTrials)}>
+            <RotateCcw /> Relancer
+          </Button>
         </div>
       </div>
 
@@ -198,40 +227,67 @@ export function BenchmarkMode() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
-              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
-                Par groupe
-              </h3>
-              <ul className="space-y-1 text-sm">
-                {metrics.perGroup.map((g) => (
-                  <li key={g.group} className="flex justify-between">
-                    <span className="text-zinc-300">{GROUP_LABEL[g.group]}</span>
-                    <span className="font-mono tabular-nums text-zinc-400">
-                      {g.intentOk}/{g.attempts} · {pct(g.rate)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="max-h-72 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
-              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
-                Par commande (pires d'abord)
-              </h3>
-              <ul className="space-y-1 text-sm">
-                {metrics.perCommand.map((c) => (
-                  <li key={c.command} className="flex justify-between gap-2">
-                    <span className="truncate text-zinc-300">« {c.command} »</span>
-                    <span
-                      className={`font-mono tabular-nums ${
-                        c.intentOk === c.attempts ? 'text-emerald-400' : 'text-red-400'
-                      }`}
-                    >
-                      {c.intentOk}/{c.attempts}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <Card className="bg-card/60">
+              <CardHeader className="p-3 pb-1">
+                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Par groupe
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 pt-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Groupe</TableHead>
+                      <TableHead className="text-right">Score</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {metrics.perGroup.map((g) => (
+                      <TableRow key={g.group}>
+                        <TableCell>{GROUP_LABEL[g.group]}</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
+                          {g.intentOk}/{g.attempts} · {pct(g.rate)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/60">
+              <CardHeader className="p-3 pb-1">
+                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Par commande (pires d'abord)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 pt-0">
+                <ScrollArea className="h-64 pr-3">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Commande</TableHead>
+                        <TableHead className="text-right">OK</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {metrics.perCommand.map((c) => (
+                        <TableRow key={c.command}>
+                          <TableCell className="truncate">« {c.command} »</TableCell>
+                          <TableCell
+                            className={cn(
+                              'text-right font-mono tabular-nums',
+                              c.intentOk === c.attempts ? 'text-emerald-400' : 'text-red-400',
+                            )}
+                          >
+                            {c.intentOk}/{c.attempts}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
           </div>
         </>
       )}

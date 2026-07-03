@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { championService } from './state/runtime';
+import { championService } from '@/ui/state/runtime';
 
 /** Icône carrée ddragon, avec fallback initiales si offline / icône introuvable. */
 export function ChampionIcon({
@@ -16,7 +16,7 @@ export function ChampionIcon({
     return (
       <div
         style={{ width: size, height: size }}
-        className="flex shrink-0 items-center justify-center rounded-md border border-zinc-700 bg-zinc-800 text-xs font-bold text-zinc-300"
+        className="flex shrink-0 items-center justify-center rounded-md border bg-muted text-xs font-bold text-muted-foreground"
         title={name}
       >
         {name.slice(0, 2).toUpperCase()}
@@ -32,7 +32,7 @@ export function ChampionIcon({
       height={size}
       loading="lazy"
       onError={() => setFailed(true)}
-      className="shrink-0 rounded-md border border-zinc-700"
+      className="shrink-0 rounded-md border"
     />
   );
 }
