@@ -11,6 +11,12 @@ export interface SttCallbacks {
 export interface SttSessionOptions {
   /** Grammaire fermée (vosk uniquement ; Whisper l'ignore). */
   grammar?: string[];
+  /**
+   * Noms des champions actifs (les 5 ennemis). Whisper s'en sert pour construire
+   * un prompt de contexte LoL qui le biaise à bien reconnaître ces noms ; vosk
+   * l'ignore (il a déjà sa grammaire).
+   */
+  promptChampions?: string[];
   sampleRate: number;
   callbacks: SttCallbacks;
 }

@@ -40,6 +40,20 @@ export const WHISPER_MODELS = {
   base: { id: 'Xenova/whisper-base', label: 'Base (~150 Mo, plus précis)' },
 } as const;
 
+/**
+ * « Speech commun » : prompt de contexte qui fait connaître LoL à Whisper et
+ * l'amorce sur les noms des champions de la partie. Whisper a tendance à
+ * réutiliser le vocabulaire du prompt → il orthographie bien mieux « Malphite »,
+ * « Kha'Zix », etc. Court volontairement (le prompt Whisper est borné).
+ */
+export function buildLolPrompt(championNames: string[]): string {
+  const names = championNames.filter(Boolean).join(', ');
+  const base = "Contexte League of Legends : cooldowns d'invocateur et ultimes.";
+  return names
+    ? `${base} Champions ennemis : ${names}. Mots : flash, ultime, téléport, ignite.`
+    : `${base} Mots : flash, ultime, téléport, ignite.`;
+}
+
 export class WhisperEngine implements SttEngine {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private constructor(private readonly transcriber: any) {}
@@ -62,7 +76,8 @@ export class WhisperEngine implements SttEngine {
   private language = 'french';
 
   createSession(opts: SttSessionOptions): SttSession {
-    return new WhisperSession(this.transcriber, opts.sampleRate, opts.callbacks, this.language);
+    const prompt = buildLolPrompt(opts.promptChampions ?? []);
+    return new WhisperSession(this.transcriber, opts.sampleRate, opts.callbacks, this.language, prompt);
   }
 
   terminate(): void {
@@ -80,6 +95,7 @@ class WhisperSession implements SttSession {
     private readonly sampleRate: number,
     private readonly callbacks: { onResult(text: string): void; onPartial?(text: string): void },
     private readonly language: string,
+    private readonly prompt: string,
   ) {}
 
   acceptChunk(samples: Float32Array): void {
@@ -100,17 +116,31 @@ class WhisperSession implements SttSession {
       return;
     }
     this.busy = true;
-    this.transcriber(audio, {
-      language: this.language,
-      task: 'transcribe',
-      chunk_length_s: 30,
-    })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then((out: any) => this.callbacks.onResult(String(out?.text ?? '').trim()))
+    this.transcribeWithContext(audio)
+      .then((text) => this.callbacks.onResult(text))
       .catch(() => this.callbacks.onResult(''))
       .finally(() => {
         this.busy = false;
       });
+  }
+
+  /**
+   * Transcrit en amorçant Whisper avec le prompt de contexte LoL. Si la version
+   * de transformers.js ne supporte pas l'option `prompt`, on retombe
+   * proprement sur une transcription sans contexte (jamais de crash).
+   */
+  private async transcribeWithContext(audio: Float32Array): Promise<string> {
+    const base = { language: this.language, task: 'transcribe' as const, chunk_length_s: 30 };
+    if (this.prompt) {
+      try {
+        const out = await this.transcriber(audio, { ...base, prompt: this.prompt });
+        return String(out?.text ?? '').trim();
+      } catch {
+        // option `prompt` non supportée → transcription sans contexte
+      }
+    }
+    const out = await this.transcriber(audio, base);
+    return String(out?.text ?? '').trim();
   }
 
   dispose(): void {

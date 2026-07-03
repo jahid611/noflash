@@ -187,6 +187,11 @@ whisper) ; changer recharge la voix à chaud. `src/voice/whisperEngine.ts` :
 - Transcription **libre** (pas de grammaire) → c'est le parser phonétique qui
   relie au champion. Couvre donc TOUT le roster, contrairement aux
   `FRENCH_ALIASES` vosk (curés).
+- **Prompt de contexte LoL** (`buildLolPrompt`) : « speech commun » qui amorce
+  Whisper sur « League of Legends » + les noms des 5 ennemis actifs → il
+  orthographie bien mieux les noms. Passé via l'option `prompt` de
+  transformers.js, avec **repli** propre si la version ne la supporte pas
+  (jamais de crash). Reconstruit à chaque changement d'équipe (makeSession).
 
 ⚠️ **Non testé en vrai** (CDN HF + micro absents du cloud) : vérifier chez
 l'utilisateur. 1er chargement = réseau requis (modèle mis en cache ensuite) ;

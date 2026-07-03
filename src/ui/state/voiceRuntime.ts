@@ -150,6 +150,7 @@ function makeSession(): void {
   session?.dispose();
   session = engine.createSession({
     grammar, // ignoré par Whisper (transcription libre)
+    promptChampions: champs.map((c) => c.name), // Whisper : contexte LoL amorcé sur l'équipe
     sampleRate: TARGET_SAMPLE_RATE,
     callbacks: { onResult: handleFinalResult, onPartial: onPartialResult },
   });
