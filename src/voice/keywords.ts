@@ -10,7 +10,11 @@ export const SPELL_WORDS: Record<string, SpellKey> = {
   ult: 'ult',
   ulti: 'ult',
   ultime: 'ult',
+  // La lettre R pour l'ult : quand tu la prononces, vosk entend « erre » (FR)
+  // ou « ar » (EN), pas la lettre « r » brute → on mappe les trois.
   r: 'ult',
+  erre: 'ult',
+  ar: 'ult',
   tp: 'teleport',
   tepe: 'teleport',
   teleport: 'teleport',
