@@ -8,6 +8,12 @@ export interface SettingsState {
   alwaysOn: boolean;
   ttsEnabled: boolean;
   ttsLang: 'en-US' | 'fr-FR';
+  /**
+   * Anti-bruit strict : ajoute [unk] à la grammaire vosk. Défaut FALSE — sans
+   * [unk], vosk force le champion le plus proche au lieu de sortir « inconnu »
+   * (fin du problème « je dis Malphite → [unk] »).
+   */
+  rejectUnknown: boolean;
   /** Flag expérimental : fenêtre de recast des ults à charges (§5). */
   chargeTracking: boolean;
   modelUrl: string;
@@ -25,12 +31,13 @@ export const useSettingsStore = create<SettingsState>()(
       alwaysOn: false,
       ttsEnabled: false,
       ttsLang: 'en-US',
+      rejectUnknown: false,
       chargeTracking: false,
       modelUrl: DEFAULT_MODEL_URL,
       benchmarkTrials: 30,
       set: (patch) => set(patch),
     }),
-    { name: 'noflash:settings:v1' },
+    { name: 'noflash:settings:v2' },
   ),
 );
 

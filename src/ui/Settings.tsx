@@ -99,6 +99,18 @@ export function SettingsView() {
         </Row>
 
         <Row
+          label="Anti-bruit strict ([unk])"
+          hint="Laisse OFF : vosk force alors le champion le plus proche au lieu de sortir « inconnu ». ON = filtre le bruit mais rate des commandes."
+          htmlFor="reject-unknown"
+        >
+          <Switch
+            id="reject-unknown"
+            checked={settings.rejectUnknown}
+            onCheckedChange={(v) => settings.set({ rejectUnknown: v })}
+          />
+        </Row>
+
+        <Row
           label="Confirmation TTS"
           hint="Annonce vocale des commandes reconnues"
           htmlFor="tts"

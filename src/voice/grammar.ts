@@ -28,6 +28,15 @@ export interface GrammarInput {
   championNames: string[];
   nicknameWords: string[];
   keywords?: string[];
+  /**
+   * Ajoute le token spécial [unk]. ⚠️ Par défaut FALSE, et c'est capital : avec
+   * [unk], vosk a le droit de répondre « inconnu » et le fait bien trop souvent
+   * sur des noms fantasy criés en teamfight (« Malphite » → [unk]). SANS [unk],
+   * il est OBLIGÉ de sortir le champion le plus proche phonétiquement parmi la
+   * liste fermée — c'est ce qui rend la reco utilisable en jeu. À n'activer
+   * qu'en mode always-on très bruyant, pour filtrer les faux positifs.
+   */
+  includeUnk?: boolean;
 }
 
 /**
@@ -49,7 +58,7 @@ export function buildGrammar(input: GrammarInput): string[] {
     for (const w of normalizeWords(nick)) words.add(w);
   }
   for (const kw of input.keywords ?? ALL_KEYWORDS) words.add(kw);
-  // Permet à vosk de classer le bruit hors-vocabulaire au lieu de forcer un match.
-  words.add('[unk]');
+  // [unk] uniquement si explicitement demandé (sinon vosk force le match).
+  if (input.includeUnk) words.add('[unk]');
   return [...words].sort();
 }

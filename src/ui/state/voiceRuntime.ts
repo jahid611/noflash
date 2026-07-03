@@ -114,7 +114,12 @@ function buildScopedGrammar(champs: ChampionRef[]): string[] {
   const nicknameWords = Object.entries(NICKNAMES)
     .filter(([, displayName]) => champs.some((c) => c.name === displayName))
     .flatMap(([nick]) => normalizeWords(nick));
-  return buildGrammar({ championNames: champs.map((c) => c.name), nicknameWords });
+  return buildGrammar({
+    championNames: champs.map((c) => c.name),
+    nicknameWords,
+    // Défaut : pas de [unk] → vosk force le champion le plus proche (fin des [unk]).
+    includeUnk: useSettingsStore.getState().rejectUnknown,
+  });
 }
 
 function buildScopedParser(champs: ChampionRef[]): ParserContext {
@@ -257,6 +262,8 @@ manualProvider.subscribe(() => {
 useSettingsStore.subscribe((state, prev) => {
   if (useVoiceStore.getState().phase !== 'ready') return;
   if (state.pttKeyCode !== prev.pttKeyCode) bindHotkey();
+  // Le rejet des sons inconnus change la grammaire → on recrée le recognizer.
+  if (state.rejectUnknown !== prev.rejectUnknown) makeSession();
   if (state.alwaysOn !== prev.alwaysOn) {
     clearPttTimers();
     gateOpen = false;

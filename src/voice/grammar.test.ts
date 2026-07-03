@@ -27,9 +27,18 @@ describe('buildGrammar', () => {
     expect(grammar).toContain('four');
   });
 
-  it('contient tous les keywords et [unk]', () => {
+  it('contient tous les keywords, SANS [unk] par défaut (forced match)', () => {
     for (const kw of ALL_KEYWORDS) expect(grammar).toContain(kw);
-    expect(grammar).toContain('[unk]');
+    expect(grammar).not.toContain('[unk]');
+  });
+
+  it('inclut [unk] uniquement si includeUnk est demandé', () => {
+    const withUnk = buildGrammar({
+      championNames: ['Ahri'],
+      nicknameWords: [],
+      includeUnk: true,
+    });
+    expect(withUnk).toContain('[unk]');
   });
 
   it('ne contient pas de doublons', () => {
