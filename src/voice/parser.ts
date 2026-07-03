@@ -84,10 +84,63 @@ function findSubsequence(haystack: string[], needle: string[]): number {
   return -1;
 }
 
+/** Distance d'édition (Levenshtein), bornée pour rester bon marché. */
+function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  const m = a.length;
+  const n = b.length;
+  if (Math.abs(m - n) > 2) return 99; // trop éloigné, inutile de calculer
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  let curr = new Array<number>(n + 1);
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
+}
+
+/**
+ * Matching phonétique de secours : rattrape les quasi-erreurs de vosk (accent
+ * FR + noms fantasy) quand le match exact échoue. Très conservateur — au plus
+ * UNE lettre d'écart sur l'ensemble du nom — pour ne jamais lancer un timer sur
+ * un mot au hasard (un faux timer est pire que pas de timer). Sur une grammaire
+ * restreinte aux 5 ennemis, les candidats sont peu nombreux → c'est sûr.
+ */
+function fuzzyFindChampion(
+  tokens: string[],
+  aliases: Alias[],
+): { champ: ChampionRef; span: [number, number] } | null {
+  for (const alias of aliases) {
+    const need = alias.tokens;
+    // On ignore les alias mono-lettre / très courts : trop de collisions.
+    if (need.join('').length < 3) continue;
+    for (let i = 0; i + need.length <= tokens.length; i++) {
+      let total = 0;
+      let ok = true;
+      for (let j = 0; j < need.length; j++) {
+        const d = editDistance(tokens[i + j], need[j]);
+        total += d;
+        if (d > 1 || total > 1) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok && total >= 1) {
+        return { champ: alias.champ, span: [i, i + need.length] };
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * Transcript → intent. Pur et robuste aux mots parasites : on cherche un
- * champion (match contigu le plus long sur noms + nicknames) et un mot-clé
- * spell n'importe où autour.
+ * champion (match contigu le plus long sur noms + nicknames, puis fallback
+ * phonétique) et un mot-clé spell n'importe où autour.
  */
 export function parseTranscript(transcript: string, ctx: ParserContext): ParseResult {
   const tokens = normalizeWords(transcript).filter((t) => t !== 'unk');
@@ -101,6 +154,15 @@ export function parseTranscript(transcript: string, ctx: ParserContext): ParseRe
       champ = alias.champ;
       span = [idx, idx + alias.tokens.length];
       break;
+    }
+  }
+
+  // Aucun match exact : on tente le rattrapage phonétique (1 lettre d'écart max).
+  if (!champ) {
+    const fuzzy = fuzzyFindChampion(tokens, ctx.aliases);
+    if (fuzzy) {
+      champ = fuzzy.champ;
+      span = fuzzy.span;
     }
   }
 

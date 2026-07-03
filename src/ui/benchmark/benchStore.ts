@@ -1,13 +1,24 @@
 import { create } from 'zustand';
-import { parseTranscript } from '../../voice/parser';
+import { parseTranscript, type ChampionRef } from '../../voice/parser';
 import { championService } from '../state/runtime';
 import {
   getOrBuildParserContext,
+  setBenchmarkChampions,
   setUtteranceConsumer,
   type UtteranceMeta,
 } from '../state/voiceRuntime';
 import type { TrialResult } from './metrics';
-import { buildTrialPlan, type TrialSpec } from './trials';
+import { BENCHMARK_TARGETS, buildTrialPlan, type TrialSpec } from './trials';
+
+/** Champions distincts du set benchmark, résolus sur le dataset ddragon. */
+function benchmarkChampions(): ChampionRef[] {
+  const byId = new Map<string, ChampionRef>();
+  for (const target of BENCHMARK_TARGETS) {
+    const champ = championService.findByName(target.championName);
+    if (champ) byId.set(champ.id, { id: champ.id, name: champ.name });
+  }
+  return [...byId.values()];
+}
 
 export type BenchStatus = 'idle' | 'running' | 'done';
 
@@ -40,6 +51,9 @@ export function startBenchmark(n: number): void {
     lastResult: null,
   });
   lastRecordAt = 0;
+  // Restreint la grammaire vosk au set benchmark (≈22 champions) : sans ça, la
+  // reco tomberait sur les 165 du roster et fausserait la mesure.
+  setBenchmarkChampions(benchmarkChampions());
   setUtteranceConsumer({
     onFinal: (transcript, meta) => recordUtterance(transcript, meta),
     onSilence: () => recordUtterance('', { latencyMs: null, source: 'voice' }),
@@ -48,6 +62,7 @@ export function startBenchmark(n: number): void {
 
 export function stopBenchmark(): void {
   setUtteranceConsumer(null);
+  setBenchmarkChampions(null); // restaure la grammaire sur l'équipe ennemie
   useBenchStore.setState({ status: 'idle', plan: [], results: [], current: 0, lastResult: null });
 }
 
@@ -103,5 +118,8 @@ function recordTrial(transcript: string, latencyMs: number | null, skipped: bool
     lastResult: result,
     status: done ? 'done' : 'running',
   });
-  if (done) setUtteranceConsumer(null);
+  if (done) {
+    setUtteranceConsumer(null);
+    setBenchmarkChampions(null); // restaure la grammaire sur l'équipe ennemie
+  }
 }

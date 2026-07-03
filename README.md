@@ -78,10 +78,19 @@ outil qui ment est pire que pas d'outil.
 ## Pourquoi vosk (et pas la Web Speech API), pourquoi Vite (et pas Next)
 
 - **vosk-browser** : offline, supporte une **grammaire fermée** (le recognizer
-  choisit parmi ~200 tokens au lieu de tout l'anglais — c'est ce qui rend la
-  reco fiable), et sera représentatif du moteur du produit desktop. La Web
-  Speech API est online (serveurs Google), sans grammaire custom, et
+  choisit parmi une petite liste de tokens au lieu de tout l'anglais — c'est ce
+  qui rend la reco fiable), et sera représentatif du moteur du produit desktop.
+  La Web Speech API est online (serveurs Google), sans grammaire custom, et
   n'existera pas dans le produit final → la tester ne validerait rien.
+
+  ⚠️ **Point critique de fiabilité** : la grammaire est restreinte aux **seuls
+  champions actifs** — les 5 ennemis sélectionnés en jeu (ou le set de champions
+  du benchmark), pas les 165 du roster ddragon. vosk ne doit distinguer que ~20
+  tokens au lieu de ~250 : avec un accent FR sur des noms fantasy, c'est la
+  différence entre inutilisable et fiable. Le recognizer est reconstruit à chaud
+  quand la composition d'équipe change. Un **rattrapage phonétique** (Levenshtein
+  ≤ 1 lettre) dans le parser récupère en plus les quasi-erreurs (« set » → Sett,
+  « ari » → Ahri) sans jamais lancer un timer sur un mot au hasard.
 - **Vite** : zéro backend, APIs navigateur pures (getUserMedia, AudioWorklet),
   portage Electron direct. Le SSR de Next se battrait contre ces APIs
   browser-only.

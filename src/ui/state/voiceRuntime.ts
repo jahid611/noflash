@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 import { BrowserAudioInput } from '../../audio/BrowserAudioInput';
 import { BrowserHotkey } from '../../audio/BrowserHotkey';
-import { buildGrammar } from '../../voice/grammar';
-import { NICKNAME_SEED, mergeNicknames } from '../../voice/nicknames';
+import { buildGrammar, normalizeWords } from '../../voice/grammar';
+import { mergeNicknames } from '../../voice/nicknames';
 import {
   buildParserContext,
   parseTranscript,
+  type ChampionRef,
   type ParserContext,
 } from '../../voice/parser';
 import { VoskEngine, type VoskRecognizerSession } from '../../voice/voskEngine';
@@ -17,7 +18,7 @@ import { useSettingsStore } from './settingsStore';
 
 const TARGET_SAMPLE_RATE = 16000;
 /** Après le relâchement du PTT, on continue d'écouter un court instant pour attraper la fin du mot. */
-const RELEASE_GRACE_MS = 250;
+const RELEASE_GRACE_MS = 350;
 /** Si aucun résultat n'arrive après le flush, on déclare "rien capté". */
 const SILENCE_TIMEOUT_MS = 1400;
 
@@ -58,6 +59,13 @@ let hotkey: BrowserHotkey | null = null;
 let parserCtx: ParserContext | null = null;
 let consumer: UtteranceConsumer | null = null;
 
+// Champions couverts par la grammaire active. null = suit l'équipe ennemie
+// (mode game) ; non-null = set figé (mode benchmark).
+let activeChampions: ChampionRef[] | null = null;
+let lastGrammarKey = '';
+
+const NICKNAMES = mergeNicknames();
+
 let gateOpen = false;
 let pttDown = false;
 let releaseAt: number | null = null;
@@ -72,13 +80,79 @@ function clearPttTimers(): void {
   silenceTimer = null;
 }
 
-/** Contexte de parsing construit sur TOUT le dataset (roster + benchmark). */
+function rosterChampions(): ChampionRef[] {
+  return manualProvider
+    .getEnemyTeam()
+    .map((e) => ({ id: e.championId, name: e.championName }));
+}
+
+/** Champions couverts par la grammaire : set benchmark figé, sinon l'équipe. */
+function getActiveChampions(): ChampionRef[] {
+  return activeChampions ?? rosterChampions();
+}
+
+function championsKey(champs: ChampionRef[]): string {
+  return champs
+    .map((c) => c.id)
+    .sort()
+    .join(',');
+}
+
+/**
+ * Grammaire fermée RESTREINTE aux champions actifs (5 ennemis en jeu, ou le set
+ * benchmark). C'est LE levier de fiabilité : vosk choisit parmi ~20 tokens au
+ * lieu des ~250 de tout le roster ddragon — décisif avec un accent FR. On ne
+ * garde que les nicknames des champions présents (sinon bruit inutile).
+ */
+function buildScopedGrammar(champs: ChampionRef[]): string[] {
+  const nicknameWords = Object.entries(NICKNAMES)
+    .filter(([, displayName]) => champs.some((c) => c.name === displayName))
+    .flatMap(([nick]) => normalizeWords(nick));
+  return buildGrammar({ championNames: champs.map((c) => c.name), nicknameWords });
+}
+
+function buildScopedParser(champs: ChampionRef[]): ParserContext {
+  return buildParserContext(champs, NICKNAMES);
+}
+
+function onPartialResult(text: string): void {
+  if (gateOpen || useSettingsStore.getState().alwaysOn) {
+    useVoiceStore.setState({ partial: text });
+  }
+}
+
+/** (Re)crée le recognizer avec la grammaire scoped courante. Modèle inchangé. */
+function makeSession(): void {
+  if (!engine) return;
+  const champs = getActiveChampions();
+  const grammar = buildScopedGrammar(champs);
+  parserCtx = buildScopedParser(champs);
+  lastGrammarKey = championsKey(champs);
+  session?.dispose();
+  session = engine.createSession(grammar, TARGET_SAMPLE_RATE, {
+    onResult: handleFinalResult,
+    onPartial: onPartialResult,
+  });
+  useVoiceStore.setState({ grammarSize: grammar.length });
+}
+
+/** Contexte de parsing scoped sur les champions actifs (équipe ou benchmark). */
 export function getOrBuildParserContext(): ParserContext | null {
   if (parserCtx) return parserCtx;
-  const dataset = useDataStore.getState().dataset;
-  if (!dataset) return null;
-  parserCtx = buildParserContext(dataset.champions, mergeNicknames());
+  const champs = getActiveChampions();
+  if (champs.length === 0) return null;
+  parserCtx = buildScopedParser(champs);
   return parserCtx;
+}
+
+/**
+ * Mode benchmark : restreint la grammaire au set d'essai puis la restaure sur
+ * l'équipe (null). Reconstruit le recognizer à chaud si la voix est active.
+ */
+export function setBenchmarkChampions(champs: ChampionRef[] | null): void {
+  activeChampions = champs;
+  parserCtx = null; // forcera un rebuild scoped au prochain accès
+  if (useVoiceStore.getState().phase === 'ready') makeSession();
 }
 
 export async function enableVoice(): Promise<void> {
@@ -92,22 +166,9 @@ export async function enableVoice(): Promise<void> {
   useVoiceStore.setState({ phase: 'starting', error: undefined });
   try {
     const settings = useSettingsStore.getState();
-    // Grammaire fermée : mots de tous les noms de champions + nicknames + keywords.
-    const grammar = buildGrammar({
-      championNames: dataset.champions.map((c) => c.name),
-      nicknameWords: Object.keys(NICKNAME_SEED),
-    });
-    parserCtx = buildParserContext(dataset.champions, mergeNicknames());
-
     engine = await VoskEngine.load(settings.modelUrl);
-    session = engine.createSession(grammar, TARGET_SAMPLE_RATE, {
-      onResult: handleFinalResult,
-      onPartial: (text) => {
-        if (gateOpen || useSettingsStore.getState().alwaysOn) {
-          useVoiceStore.setState({ partial: text });
-        }
-      },
-    });
+    // Grammaire fermée RESTREINTE aux champions actifs (voir buildScopedGrammar).
+    makeSession();
 
     audio = new BrowserAudioInput(TARGET_SAMPLE_RATE);
     await audio.open((chunk) => {
@@ -119,12 +180,16 @@ export async function enableVoice(): Promise<void> {
     });
 
     bindHotkey();
+    const grammarSize = useVoiceStore.getState().grammarSize;
+    const champCount = getActiveChampions().length;
     useVoiceStore.setState({
       phase: 'ready',
-      grammarSize: grammar.length,
       listening: useSettingsStore.getState().alwaysOn,
     });
-    addLog({ kind: 'info', detail: `Voix activée — grammaire fermée de ${grammar.length} tokens` });
+    addLog({
+      kind: 'info',
+      detail: `Voix activée — grammaire fermée de ${grammarSize} tokens (${champCount} champions)`,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await teardown();
@@ -168,6 +233,19 @@ function bindHotkey(): void {
     onUp: onPttUp,
   });
 }
+
+// Reconstruit la grammaire quand la COMPOSITION de l'équipe change (mode game).
+// Un simple toggle de haste ne change pas la liste → pas de rebuild.
+manualProvider.subscribe(() => {
+  if (activeChampions !== null) return; // benchmark : grammaire figée
+  if (useVoiceStore.getState().phase !== 'ready') return;
+  if (championsKey(rosterChampions()) === lastGrammarKey) return;
+  makeSession();
+  addLog({
+    kind: 'info',
+    detail: `Grammaire mise à jour — ${useVoiceStore.getState().grammarSize} tokens (${rosterChampions().length} champions)`,
+  });
+});
 
 // Rebind à chaud quand la touche PTT ou le mode always-on change.
 useSettingsStore.subscribe((state, prev) => {

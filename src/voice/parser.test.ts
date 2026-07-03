@@ -87,3 +87,39 @@ describe('parseTranscript', () => {
     expect(parseTranscript('[unk] [unk]', ctx)).toMatchObject({ ok: false, reason: 'empty' });
   });
 });
+
+describe('parseTranscript — rattrapage phonétique (1 lettre max)', () => {
+  it('rattrape une quasi-erreur sur un nom court', () => {
+    const set = parseTranscript('set no flash', ctx);
+    expect(set.ok && set.intent.championId).toBe('Sett');
+    const ari = parseTranscript('ari no flash', ctx);
+    expect(ari.ok && ari.intent.championId).toBe('Ahri');
+  });
+
+  it('rattrape une lettre manquante sur un nom long', () => {
+    const morg = parseTranscript('morgan no ult', ctx);
+    expect(morg.ok && morg.intent.championId).toBe('Morgana');
+  });
+
+  it('rattrape une lettre sur un nom à apostrophe', () => {
+    const kha = parseTranscript('kha zic no ult', ctx);
+    expect(kha.ok && kha.intent.championId).toBe('Khazix');
+  });
+
+  it('ne matche PAS un mot vraiment éloigné (pas de faux timer)', () => {
+    expect(parseTranscript('banana no flash', ctx)).toMatchObject({
+      ok: false,
+      reason: 'no-champion',
+    });
+    expect(parseTranscript('hello no flash', ctx)).toMatchObject({
+      ok: false,
+      reason: 'no-champion',
+    });
+  });
+
+  it('le match exact reste prioritaire sur le fuzzy', () => {
+    // "sett" exact → Sett, pas un voisin fuzzy.
+    const res = parseTranscript('sett no flash', ctx);
+    expect(res.ok && res.intent.championId).toBe('Sett');
+  });
+});
