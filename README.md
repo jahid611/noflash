@@ -9,9 +9,12 @@ En game, je dis « **ahri no flash** » → un timer de 5:00 démarre pour le Fl
 d'Ahri. Pareil pour l'ult (« ahri no ult »), en tenant compte de la CDR quand
 l'info est disponible.
 
-Ceci est un **banc d'essai**, pas le produit final. L'overlay transparent, la
-Live Client API et le packaging Electron viendront après — mais l'architecture
-est déjà découpée pour ce portage (voir [Architecture](#architecture)).
+Le web est un **banc d'essai** ; le vrai produit qui **lit ta partie en direct**
+est l'**app desktop Electron** (voir [App desktop](#️-app-desktop-electron--lecture-de-la-vraie-partie)).
+
+> 📌 **Pour reprendre/tester le projet** : `CLAUDE.md` (contexte complet, lu
+> auto par Claude Code), **`docs/ROADMAP.md`** (plan de test in-game phasé, chez
+> toi avec LoL), `docs/HANDOFF.md` (journal des décisions & impasses).
 
 ## Démarrage
 
