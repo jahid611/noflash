@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.local
+
+# Modèle vosk : téléchargé par l'utilisateur (voir README), jamais commité.
+public/model/*.tar.gz
+public/model/*.zip
