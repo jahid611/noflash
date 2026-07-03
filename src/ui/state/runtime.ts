@@ -4,7 +4,8 @@ import { createTimerEngine } from '../../timers/engine';
 import { ChampionService } from '../../data/championService';
 import { LocalStorageCache } from '../../data/cache';
 import { BrowserTts, type SpeechOutput } from '../../audio/SpeechOutput';
-import type { EnemyConfig } from '../../game/types';
+import { normalizeSummoners, type EnemyConfig } from '../../game/types';
+import type { SummonerSpellKey } from '../../cooldowns/types';
 
 /**
  * Composition root web : c'est ICI (et seulement ici) que les modules purs
@@ -24,8 +25,17 @@ export function hydrateRoster(): void {
   try {
     const raw = localStorage.getItem(ROSTER_KEY);
     if (!raw) return;
-    const parsed = JSON.parse(raw) as EnemyConfig[];
-    if (Array.isArray(parsed)) manualProvider.replaceTeam(parsed);
+    const parsed = JSON.parse(raw) as Array<
+      EnemyConfig & { secondSummoner?: SummonerSpellKey | null }
+    >;
+    if (!Array.isArray(parsed)) return;
+    // Migration : ancien format (secondSummoner) → summoners[].
+    const migrated: EnemyConfig[] = parsed.map((e) => {
+      if (Array.isArray(e.summoners)) return { ...e, summoners: normalizeSummoners(e.summoners) };
+      const second = e.secondSummoner;
+      return { ...e, summoners: second ? ['flash', second] : ['flash'] };
+    });
+    manualProvider.replaceTeam(migrated);
   } catch {
     localStorage.removeItem(ROSTER_KEY);
   }

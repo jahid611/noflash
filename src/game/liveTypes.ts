@@ -44,7 +44,6 @@ export interface LiveEnemy {
   championName: string;
   level: number;
   hasIonianBoots: boolean;
-  hasFlash: boolean;
-  /** Second summoner (hors Flash) suivi, si reconnu. */
-  secondSummoner: SummonerSpellKey | null;
+  /** Les deux summoner spells réels de l'ennemi (Flash en tête si présent). */
+  summoners: SummonerSpellKey[];
 }

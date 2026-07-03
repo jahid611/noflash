@@ -10,7 +10,8 @@ export interface LiveSyncEnemy {
   championName: string;
   level: number;
   hasIonianBoots: boolean;
-  secondSummoner: SummonerSpellKey | null;
+  /** Les deux summoners réels de l'ennemi (Flash en tête si présent). */
+  summoners: SummonerSpellKey[];
 }
 
 /** id ddragon de l'item Ionian Boots of Lucidity. ⚠️ PATCH-DEPENDENT. */
@@ -91,7 +92,8 @@ export class ManualProvider implements GameStateProvider {
         level: l.level,
         ultRank: ultRankForLevel(l.level),
         hasIonianBoots: l.hasIonianBoots,
-        secondSummoner: l.secondSummoner,
+        // Les vrais summoners lus en jeu ; si l'API n'en donne pas, on garde l'existant.
+        summoners: l.summoners.length > 0 ? l.summoners : base.summoners,
       };
     });
     if (liveSignature(current) === liveSignature(next)) return; // rien de neuf
@@ -102,6 +104,9 @@ export class ManualProvider implements GameStateProvider {
 /** Signature des champs pilotés par le live — pour détecter un vrai changement. */
 function liveSignature(enemies: EnemyConfig[]): string {
   return enemies
-    .map((e) => `${e.championId}:${e.level}:${e.hasIonianBoots ? 1 : 0}:${e.secondSummoner ?? '-'}`)
+    .map(
+      (e) =>
+        `${e.championId}:${e.level}:${e.hasIonianBoots ? 1 : 0}:${e.summoners.join('+')}`,
+    )
     .join('|');
 }

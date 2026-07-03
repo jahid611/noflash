@@ -16,8 +16,11 @@ export interface EnemyConfig {
   hasCosmicInsight: boolean;
   extraSummonerHaste: number;
   extraAbilityHaste: number;
-  /** Second summoner affiché en plus de Flash (les ennemis en ont deux). */
-  secondSummoner: SummonerSpellKey | null;
+  /**
+   * Les summoner spells suivis (les DEUX de l'ennemi). En jeu ils viennent de la
+   * Live Client API ; en manuel, défaut = [flash]. Flash en tête pour l'affichage.
+   */
+  summoners: SummonerSpellKey[];
 }
 
 export function defaultEnemyConfig(championId: string, championName: string): EnemyConfig {
@@ -30,6 +33,15 @@ export function defaultEnemyConfig(championId: string, championName: string): En
     hasCosmicInsight: false, // worst case par défaut : 0 haste
     extraSummonerHaste: 0,
     extraAbilityHaste: 0,
-    secondSummoner: null,
+    summoners: ['flash'],
   };
+}
+
+/** Flash en premier, doublons retirés — pour un affichage stable des summoners. */
+export function normalizeSummoners(summoners: SummonerSpellKey[]): SummonerSpellKey[] {
+  const seen = new Set<SummonerSpellKey>();
+  const ordered = summoners.includes('flash')
+    ? ['flash' as SummonerSpellKey, ...summoners.filter((s) => s !== 'flash')]
+    : summoners;
+  return ordered.filter((s) => (seen.has(s) ? false : (seen.add(s), true)));
 }

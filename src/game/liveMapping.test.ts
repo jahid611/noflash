@@ -53,20 +53,39 @@ describe('extractEnemies', () => {
     expect(enemies.map((e) => e.championName)).toEqual(['Zed', "Kha'Zix"]);
   });
 
-  it('extrait niveau, bottes ioniennes et 2e summoner', () => {
+  it('extrait niveau, bottes ioniennes et les DEUX summoners (Flash en tête)', () => {
     const zed = extractEnemies(game).find((e) => e.championName === 'Zed');
     expect(zed).toMatchObject({
       level: 11,
       hasIonianBoots: true,
-      hasFlash: true,
-      secondSummoner: 'teleport',
+      summoners: ['flash', 'teleport'],
     });
   });
 
-  it('ennemi sans bottes → hasIonianBoots false', () => {
+  it('ennemi sans bottes → hasIonianBoots false, summoners lus', () => {
     const kha = extractEnemies(game).find((e) => e.championName === "Kha'Zix");
     expect(kha?.hasIonianBoots).toBe(false);
-    expect(kha?.secondSummoner).toBe('ignite');
+    expect(kha?.summoners).toEqual(['flash', 'ignite']);
+  });
+
+  it('gère une paire de summoners SANS Flash (les deux sont suivis)', () => {
+    const noFlash: LiveAllGameData = {
+      activePlayer: { riotId: 'Me#EUW' },
+      allPlayers: [
+        player({ championName: 'Me', riotId: 'Me#EUW', team: 'ORDER' }),
+        player({
+          championName: 'Singed',
+          riotId: 'Foe#EUW',
+          team: 'CHAOS',
+          summonerSpells: {
+            summonerSpellOne: { displayName: 'Ghost' },
+            summonerSpellTwo: { displayName: 'Teleport' },
+          },
+        }),
+      ],
+    };
+    const singed = extractEnemies(noFlash).find((e) => e.championName === 'Singed');
+    expect(singed?.summoners).toEqual(['ghost', 'teleport']);
   });
 
   it("retourne [] si le joueur actif est introuvable (pas de fausse équipe)", () => {

@@ -144,9 +144,8 @@ function EnemyRow({ enemy, now }: { enemy: EnemyConfig; now: number }) {
   const [expanded, setExpanded] = useState(false);
   const activeTimers = useStore(timerEngine, (s) => s.timers);
 
-  const chips: SpellKey[] = ['flash'];
-  if (enemy.secondSummoner) chips.push(enemy.secondSummoner);
-  chips.push('ult');
+  // Les summoners réels de l'ennemi (lus en jeu, ou [flash] par défaut) + l'ult.
+  const chips: SpellKey[] = [...enemy.summoners, 'ult'];
   // Icônes éphémères : spells démarrés à la voix mais pas suivis en permanence.
   for (const timer of Object.values(activeTimers)) {
     if (timer.championId === enemy.championId && !chips.includes(timer.spell)) {
@@ -278,11 +277,15 @@ function EnemyRow({ enemy, now }: { enemy: EnemyConfig; now: number }) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">2e summoner suivi</Label>
+            <Label className="text-xs text-muted-foreground">
+              2e summoner (auto en jeu)
+            </Label>
             <Select
-              value={enemy.secondSummoner ?? 'none'}
+              value={enemy.summoners.find((s) => s !== 'flash') ?? 'none'}
               onValueChange={(v) =>
-                update({ secondSummoner: v === 'none' ? null : (v as SummonerSpellKey) })
+                update({
+                  summoners: v === 'none' ? ['flash'] : ['flash', v as SummonerSpellKey],
+                })
               }
             >
               <SelectTrigger className="h-8 w-32">

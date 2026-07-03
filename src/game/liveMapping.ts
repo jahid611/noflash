@@ -1,5 +1,6 @@
 import type { SummonerSpellKey } from '../cooldowns/types';
 import { IONIAN_BOOTS_ITEM_ID } from './ManualProvider';
+import { normalizeSummoners } from './types';
 import type { LiveAllGameData, LiveEnemy, LivePlayer, LiveSummonerSpell } from './liveTypes';
 
 /**
@@ -42,14 +43,12 @@ function toEnemy(player: LivePlayer): LiveEnemy | null {
   const one = summonerSpellKey(player.summonerSpells?.summonerSpellOne);
   const two = summonerSpellKey(player.summonerSpells?.summonerSpellTwo);
   const spells = [one, two].filter((s): s is SummonerSpellKey => s !== null);
-  const hasFlash = spells.includes('flash');
-  const secondSummoner = spells.find((s) => s !== 'flash') ?? null;
   return {
     championName,
     level: typeof player.level === 'number' ? player.level : 1,
     hasIonianBoots: hasIonianBoots(player),
-    hasFlash,
-    secondSummoner,
+    // Les deux vrais summoners de l'ennemi (Flash en tête). Vide → géré en aval.
+    summoners: normalizeSummoners(spells),
   };
 }
 

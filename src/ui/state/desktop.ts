@@ -95,7 +95,7 @@ function syncFromGame(data: LiveAllGameData): void {
       championName: champ.name,
       level: enemy.level,
       hasIonianBoots: enemy.hasIonianBoots,
-      secondSummoner: enemy.secondSummoner,
+      summoners: enemy.summoners,
     });
   }
   useDesktopStore.setState({ gameConnected: true, enemyCount: mapped.length });
