@@ -46,7 +46,53 @@ export const NICKNAME_SEED: NicknameMap = {
   'jay four': 'Jarvan IV',
 };
 
-/** Point d'extension config : merge de nicknames custom par-dessus la seed. */
+/**
+ * ⚠️ CRUCIAL avec le modèle vosk FRANÇAIS. Les noms de champions écrits à
+ * l'anglaise (« lucian », « malphite ») ont une mauvaise correspondance
+ * phonétique dans un modèle FR → vosk ne les sort JAMAIS (constaté : « Lucian
+ * no R » → « no erre », le nom disparaît). On ajoute donc des orthographes que
+ * le modèle FR sait prononcer (souvent de vrais mots/prénoms FR). Le moteur
+ * phonétique du parser (phoneticKey) les remappe sur le bon champion.
+ *
+ * Couvre l'équipe d'exemple + le set benchmark. Extensible pour le roster
+ * complet ; pour les champions non couverts, c'est Whisper qui prendra le relais.
+ */
+export const FRENCH_ALIASES: NicknameMap = {
+  ari: 'Ahri',
+  arie: 'Ahri',
+  lucien: 'Lucian',
+  lucianne: 'Lucian',
+  lussian: 'Lucian',
+  malfite: 'Malphite',
+  malfit: 'Malphite',
+  malphit: 'Malphite',
+  zede: 'Zed',
+  kazix: "Kha'Zix",
+  kaziks: "Kha'Zix",
+  cazix: "Kha'Zix",
+  ache: 'Ashe',
+  chogate: "Cho'Gath",
+  chogat: "Cho'Gath",
+  jarvane: 'Jarvan IV',
+  jaks: 'Jax',
+  jacks: 'Jax',
+  kaissa: "Kai'Sa",
+  kaisa: "Kai'Sa",
+  lissine: 'Lee Sin',
+  lissin: 'Lee Sin',
+  morgane: 'Morgana',
+  oriana: 'Orianna',
+  oriane: 'Orianna',
+  reksai: "Rek'Sai",
+  rexai: "Rek'Sai",
+  sejuane: 'Sejuani',
+  twistedfate: 'Twisted Fate',
+  velkoz: "Vel'Koz",
+  velcoss: "Vel'Koz",
+  vladimir: 'Vladimir',
+};
+
+/** Point d'extension config : merge FR + seed + nicknames custom. */
 export function mergeNicknames(extra: NicknameMap = {}): NicknameMap {
-  return { ...NICKNAME_SEED, ...extra };
+  return { ...NICKNAME_SEED, ...FRENCH_ALIASES, ...extra };
 }

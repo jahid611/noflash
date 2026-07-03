@@ -99,6 +99,17 @@ connues, le scoreur phonétique est supérieur (latence nulle, déterministe).
 **Variantes FR** de mots-clés dans `src/voice/keywords.ts` (« ulti »/« ultime »→
 ult, « erre »/« ar »→ult (lettre R), « télé »→teleport, etc.).
 
+⚠️ **Découverte terrain (capture utilisateur)** : avec le modèle FR, les
+mots-clés FR passent parfaitement MAIS les noms de champions écrits à l'anglaise
+(`lucian`, `malphite`) ne sortent JAMAIS de vosk (« Lucian no R » → « no erre »,
+le nom disparaît) — le modèle FR ne sait pas prononcer ces graphies anglaises.
+Fix : **`FRENCH_ALIASES`** dans `src/voice/nicknames.ts` — orthographes que le
+modèle FR sait prononcer (« lucien », « ari », « malfite », « kazix »…), injectées
+dans la grammaire ET le parser via `mergeNicknames()`. Couvre l'équipe d'exemple
++ le benchmark. ⚠️ **Limite** : ça ne scale pas aux 165 champions (curation
+manuelle). Pour le roster complet, c'est **Whisper** (§11) qui est la vraie
+réponse — vosk small ne fait pas les noms fantasy de façon générale.
+
 Anti-pattern à éviter : remettre la grammaire sur TOUT le roster, ou remettre
 `[unk]` par défaut. Les deux re-cassent la reco.
 

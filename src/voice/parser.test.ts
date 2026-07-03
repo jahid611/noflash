@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { FALLBACK_CHAMPIONS } from '../data/fallback';
 import { buildParserContext, parseTranscript, phoneticKey } from './parser';
-import { NICKNAME_SEED } from './nicknames';
+import { NICKNAME_SEED, mergeNicknames } from './nicknames';
 
 const ctx = buildParserContext(
   FALLBACK_CHAMPIONS.map(({ id, name }) => ({ id, name })),
   NICKNAME_SEED,
+);
+
+// Contexte complet (alias FR inclus) — comme en jeu.
+const ctxFr = buildParserContext(
+  FALLBACK_CHAMPIONS.map(({ id, name }) => ({ id, name })),
+  mergeNicknames(),
 );
 
 describe('parseTranscript', () => {
@@ -140,6 +146,26 @@ describe('parseTranscript — moteur phonétique (comprend même de travers)', (
   it('un mot courant proche (« has ») ne vole pas le match au vrai nom', () => {
     const res = parseTranscript('has malphite no flash', ctx);
     expect(res.ok && res.intent.championId).toBe('Malphite');
+  });
+});
+
+describe('alias français (grammaire prononçable par le modèle FR)', () => {
+  it('« lucien no erre » → Lucian ult (ce que vosk FR sort vraiment)', () => {
+    const res = parseTranscript('lucien no erre', ctxFr);
+    expect(res.ok && res.intent.championId).toBe('Lucian');
+    expect(res.ok && res.intent.spell).toBe('ult');
+  });
+
+  it('« malfite no flash » → Malphite flash', () => {
+    const res = parseTranscript('malfite no flash', ctxFr);
+    expect(res.ok && res.intent.championId).toBe('Malphite');
+    expect(res.ok && res.intent.spell).toBe('flash');
+  });
+
+  it('« ari no flash » → Ahri', () => {
+    expect((parseTranscript('ari no flash', ctxFr) as { intent?: { championId: string } }).intent?.championId).toBe(
+      'Ahri',
+    );
   });
 });
 
