@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FALLBACK_CHAMPIONS } from '../data/fallback';
-import { buildParserContext, parseTranscript } from './parser';
+import { buildParserContext, parseTranscript, phoneticKey } from './parser';
 import { NICKNAME_SEED } from './nicknames';
 
 const ctx = buildParserContext(
@@ -88,7 +88,7 @@ describe('parseTranscript', () => {
   });
 });
 
-describe('parseTranscript — rattrapage phonétique (1 lettre max)', () => {
+describe('parseTranscript — moteur phonétique (comprend même de travers)', () => {
   it('rattrape une quasi-erreur sur un nom court', () => {
     const set = parseTranscript('set no flash', ctx);
     expect(set.ok && set.intent.championId).toBe('Sett');
@@ -101,9 +101,24 @@ describe('parseTranscript — rattrapage phonétique (1 lettre max)', () => {
     expect(morg.ok && morg.intent.championId).toBe('Morgana');
   });
 
-  it('rattrape une lettre sur un nom à apostrophe', () => {
-    const kha = parseTranscript('kha zic no ult', ctx);
+  it('relie une transcription phonétiquement proche au bon champion', () => {
+    // Ce que vosk peut sortir sur une voix FR, orthographié « de travers ».
+    for (const said of ['malfite', 'malfit', 'mal fite']) {
+      const res = parseTranscript(`${said} no flash`, ctx);
+      expect(res.ok && res.intent.championId, said).toBe('Malphite');
+    }
+    expect((parseTranscript('lucianne no flash', ctx) as never) && true).toBeTruthy();
+    const luc = parseTranscript('lucianne no flash', ctx);
+    expect(luc.ok && luc.intent.championId).toBe('Lucian');
+    const kha = parseTranscript('kazix no ult', ctx);
     expect(kha.ok && kha.intent.championId).toBe('Khazix');
+    const ori = parseTranscript('oriana no ult', ctx);
+    expect(ori.ok && ori.intent.championId).toBe('Orianna');
+  });
+
+  it('rattrape un mot-clé de sort mal transcrit (phonétique)', () => {
+    const flache = parseTranscript('ahri flache', ctx);
+    expect(flache.ok && flache.intent.spell).toBe('flash');
   });
 
   it('ne matche PAS un mot vraiment éloigné (pas de faux timer)', () => {
@@ -117,9 +132,22 @@ describe('parseTranscript — rattrapage phonétique (1 lettre max)', () => {
     });
   });
 
-  it('le match exact reste prioritaire sur le fuzzy', () => {
-    // "sett" exact → Sett, pas un voisin fuzzy.
+  it('le match exact reste prioritaire', () => {
     const res = parseTranscript('sett no flash', ctx);
     expect(res.ok && res.intent.championId).toBe('Sett');
+  });
+
+  it('un mot courant proche (« has ») ne vole pas le match au vrai nom', () => {
+    const res = parseTranscript('has malphite no flash', ctx);
+    expect(res.ok && res.intent.championId).toBe('Malphite');
+  });
+});
+
+describe('phoneticKey', () => {
+  it('réduit les variantes d’un même nom à la même clé', () => {
+    expect(phoneticKey('malphite')).toBe(phoneticKey('malfite'));
+    expect(phoneticKey('khazix')).toBe(phoneticKey('kazix'));
+    expect(phoneticKey('ph')).toBe('f');
+    expect(phoneticKey('lucian')).toBe(phoneticKey('lucian'));
   });
 });

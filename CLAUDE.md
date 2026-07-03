@@ -85,9 +85,19 @@ clairement articulé. Corrigé en 3 couches :
    lieu de « inconnu ». Toggle « Anti-bruit strict » (Réglages,
    `settings.rejectUnknown`) pour le réactiver en environnement très bruyant.
 
-En plus : **rattrapage phonétique** (Levenshtein ≤ 1) dans `src/voice/parser.ts`
-(« set »→Sett), et **variantes FR** de mots-clés dans `src/voice/keywords.ts`
-(« ulti »/« ultime »→ult, « erre »/« ar »→ult (lettre R), « télé »→teleport, etc.).
+En plus, la **« mini-IA » sans ressources** (`src/voice/parser.ts`) : un moteur
+**phonétique** qui relie ce que dit le joueur aux champions/sorts connus **même
+si vosk transcrit de travers**. `phoneticKey()` réduit un mot à une clé
+phonétique FR-tolérante (ph→f, h muet, doubles, finales muettes…) : « malphite »,
+« malfite », « mal fit » → même clé. `phoneticFindChampion` teste des fenêtres de
+1–3 tokens contre les alias des **5 ennemis** et prend le plus proche SOUS un
+seuil (0.34) — « closest-of-5 », mais un mot éloigné (« banana ») est rejeté
+(jamais de faux timer). Zéro modèle, quelques µs, offline. Match exact
+prioritaire ; phonétique en second. Idem pour les sorts (`matchSpell`). Ne PAS
+remplacer par un LLM/modèle lourd : le problème est un classement sur ~15 options
+connues, le scoreur phonétique est supérieur (latence nulle, déterministe).
+**Variantes FR** de mots-clés dans `src/voice/keywords.ts` (« ulti »/« ultime »→
+ult, « erre »/« ar »→ult (lettre R), « télé »→teleport, etc.).
 
 Anti-pattern à éviter : remettre la grammaire sur TOUT le roster, ou remettre
 `[unk]` par défaut. Les deux re-cassent la reco.
