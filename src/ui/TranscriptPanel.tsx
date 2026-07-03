@@ -1,35 +1,44 @@
 import { useState } from 'react';
-import { CornerDownLeft } from 'lucide-react';
+import {
+  CheckCircle2,
+  CornerDownLeft,
+  HelpCircle,
+  Info,
+  Mic,
+  VolumeX,
+  XCircle,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SPELL_LABEL } from '@/ui/state/actions';
-import { useLogStore, type LogEntry } from '@/ui/state/logStore';
+import { useLogStore, type LogEntry, type LogKind } from '@/ui/state/logStore';
 import { simulateTranscript, useVoiceStore } from '@/ui/state/voiceRuntime';
+
+/** Icônes monochromes (palette gris/bleu uniquement). */
+const KIND_ICON: Record<LogKind, React.ReactNode> = {
+  intent: <CheckCircle2 className="h-3.5 w-3.5 text-indigo-400" />,
+  unrecognized: <HelpCircle className="h-3.5 w-3.5 text-indigo-300" />,
+  silence: <VolumeX className="h-3.5 w-3.5 text-muted-foreground" />,
+  info: <Info className="h-3.5 w-3.5 text-muted-foreground" />,
+  error: <XCircle className="h-3.5 w-3.5 text-indigo-300" />,
+};
 
 function EntryRow({ entry }: { entry: LogEntry }) {
   const time = new Date(entry.at).toLocaleTimeString('fr-FR', { hour12: false });
 
-  const icon =
-    entry.kind === 'intent'
-      ? '✅'
-      : entry.kind === 'unrecognized'
-        ? '❓'
-        : entry.kind === 'silence'
-          ? '🔇'
-          : entry.kind === 'error'
-            ? '❌'
-            : 'ℹ️';
-
   return (
-    <li className="rounded-lg border bg-background/60 px-2.5 py-1.5 text-xs">
+    <li className="rounded-lg border bg-background/50 px-2.5 py-1.5 text-xs">
       <div className="flex items-center gap-2">
-        <span>{icon}</span>
+        {KIND_ICON[entry.kind]}
         <span className="text-muted-foreground">{time}</span>
         {typeof entry.latencyMs === 'number' && (
-          <Badge variant="secondary" className="ml-auto px-1.5 py-0 font-mono text-[10px] font-normal">
+          <Badge
+            variant="secondary"
+            className="ml-auto px-1.5 py-0 font-mono text-[10px] font-normal"
+          >
             {entry.latencyMs} ms
           </Badge>
         )}
@@ -38,7 +47,7 @@ function EntryRow({ entry }: { entry: LogEntry }) {
         <p className="mt-1 font-mono text-foreground/80">« {entry.transcript} »</p>
       )}
       {entry.intent && (
-        <p className="mt-0.5 font-semibold text-emerald-300">
+        <p className="mt-0.5 font-semibold text-indigo-300">
           → {entry.intent.championName} · {SPELL_LABEL[entry.intent.spell]} ·{' '}
           {entry.intent.action === 'start' ? 'cooldown lancé' : 'reset'}
         </p>
@@ -57,19 +66,20 @@ export function TranscriptPanel() {
   const [manual, setManual] = useState('');
 
   return (
-    <Card className="flex max-h-[75vh] flex-col bg-card/60">
+    <Card className="flex max-h-[75vh] flex-col bg-card">
       <CardHeader className="flex-row items-center justify-between space-y-0 p-3 pb-2">
-        <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+        <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
           Transcript
         </CardTitle>
-        <Button variant="outline" size="sm" onClick={clear} className="h-6 px-2 text-[11px]">
+        <Button variant="secondary" size="sm" onClick={clear} className="h-6 px-2 text-[11px]">
           Vider
         </Button>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col p-3 pt-0">
         {(listening || partial) && (
-          <div className="mb-2 rounded-lg border border-red-500/40 bg-red-500/5 px-2.5 py-1.5 text-xs">
-            <span className="font-bold text-red-300">🎙️ {listening ? 'écoute…' : ''}</span>{' '}
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-primary/50 bg-primary/10 px-2.5 py-1.5 text-xs">
+            <Mic className="h-3.5 w-3.5 animate-pulse text-indigo-300" />
+            <span className="font-bold text-indigo-300">{listening ? 'écoute…' : ''}</span>
             <span className="font-mono text-foreground/80">{partial}</span>
           </div>
         )}
@@ -103,7 +113,7 @@ export function TranscriptPanel() {
             placeholder='Simuler : "ahri no flash"'
             className="h-8 min-w-0 flex-1 text-xs"
           />
-          <Button type="submit" variant="outline" size="sm" className="h-8 px-2.5">
+          <Button type="submit" size="sm" className="h-8 px-2.5">
             <CornerDownLeft />
           </Button>
         </form>

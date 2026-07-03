@@ -86,7 +86,10 @@ outil qui ment est pire que pas d'outil.
   portage Electron direct. Le SSR de Next se battrait contre ces APIs
   browser-only.
 - **UI** : React + Tailwind + **shadcn/ui** (Radix primitives, sonner pour les
-  toasts), thème dark-only compact, feeling overlay dès maintenant.
+  toasts). Thème façon Discord : gris foncés + blurple/indigo uniquement. Les
+  icônes de sorts (Flash, summoners, R de chaque champion) sont les assets
+  ddragon chargés au runtime, et le cooldown s'écoule directement sur l'icône
+  (balayage radial + compteur) comme dans le jeu.
 
 ## Mode Benchmark
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from 'zustand';
-import { Pencil, Settings2 } from 'lucide-react';
+import { Footprints, Pencil, Settings2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,10 +21,10 @@ import type { EnemyConfig } from '@/game/types';
 import { formatMMSS, remainingSeconds, timerKey } from '@/timers/engine';
 import { ChampionIcon } from '@/ui/ChampionIcon';
 import { SPELL_LABEL, resetCooldown, startCooldown } from '@/ui/state/actions';
-import { manualProvider, timerEngine } from '@/ui/state/runtime';
+import { championService, manualProvider, timerEngine } from '@/ui/state/runtime';
 import { useNow } from '@/ui/state/useNow';
 
-/** En dessous de ce reliquat, le timer passe "bientôt prêt" (jaune). */
+/** En dessous de ce reliquat, le compteur passe en bleu clair ("bientôt prêt"). */
 const SOON_THRESHOLD_S = 15;
 
 const SECOND_SUMMONERS: SummonerSpellKey[] = [
@@ -37,14 +37,45 @@ const SECOND_SUMMONERS: SummonerSpellKey[] = [
   'ghost',
 ];
 
-function TimerChip({ enemy, spell, now }: { enemy: EnemyConfig; spell: SpellKey; now: number }) {
+/** Libellé de secours quand l'icône ddragon est injoignable (offline). */
+const SPELL_FALLBACK_LABEL: Record<SpellKey, string> = {
+  flash: 'F',
+  ult: 'R',
+  teleport: 'TP',
+  ignite: 'IGN',
+  heal: 'HL',
+  exhaust: 'EXH',
+  barrier: 'BAR',
+  cleanse: 'CLN',
+  ghost: 'GH',
+};
+
+/** Affichage façon LoL : secondes entières sous la minute, m:ss au-dessus. */
+function formatCooldown(remaining: number): string {
+  return remaining >= 60 ? formatMMSS(remaining) : String(Math.ceil(remaining));
+}
+
+/**
+ * Icône de sort comme en jeu : asset ddragon (summoner spell ou R du champion),
+ * grisée pendant le cooldown avec balayage radial + compteur, re-colorée quand up.
+ * Clic = start/reset manuel (§8).
+ */
+function SpellIcon({ enemy, spell, now }: { enemy: EnemyConfig; spell: SpellKey; now: number }) {
+  const [imgFailed, setImgFailed] = useState(false);
   const timer = useStore(timerEngine, (s) => s.timers[timerKey(enemy.championId, spell)]);
   const remaining = timer ? remainingSeconds(timer, now) : 0;
   const running = Boolean(timer) && remaining > 0;
   const soon = running && remaining <= SOON_THRESHOLD_S;
+  // Fraction écoulée : l'ombre balaie en horaire et disparaît, comme dans LoL.
+  const elapsedDeg = running && timer ? Math.min(360, (1 - remaining / timer.duration) * 360) : 360;
+
+  const url =
+    spell === 'ult'
+      ? (championService.getUltIconUrl(enemy.championId) ??
+        championService.iconUrl(enemy.championId))
+      : championService.getSummonerIconUrl(spell);
 
   const onClick = () => {
-    // Fallback manuel au clic (§8) : start si prêt, reset si en cours.
     if (running) resetCooldown(enemy, spell, { source: 'click' });
     else startCooldown(enemy, spell, { source: 'click' });
   };
@@ -52,29 +83,58 @@ function TimerChip({ enemy, spell, now }: { enemy: EnemyConfig; spell: SpellKey;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          variant="outline"
+        <button
           onClick={onClick}
           className={cn(
-            'flex h-auto min-w-[86px] flex-col items-center px-2.5 py-1.5',
-            running
-              ? soon
-                ? 'animate-pulse border-amber-400/60 bg-amber-400/10 text-amber-300 hover:bg-amber-400/15 hover:text-amber-200'
-                : 'border-red-500/50 bg-red-500/10 text-red-300 hover:bg-red-500/15 hover:text-red-200'
-              : 'border-emerald-500/40 bg-emerald-500/5 text-emerald-300 hover:bg-emerald-500/15 hover:text-emerald-200',
+            'relative h-12 w-12 shrink-0 overflow-hidden rounded-md border bg-popover transition',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            running ? 'border-border' : 'border-border hover:border-primary/70',
           )}
         >
-          <span className="text-[10px] font-bold uppercase tracking-wider opacity-75">
-            {SPELL_LABEL[spell]}
-            {timer?.approximate && ' ~'}
-          </span>
-          <span className="font-mono text-base font-bold tabular-nums leading-tight">
-            {running ? formatMMSS(remaining) : 'UP'}
-          </span>
-        </Button>
+          {imgFailed ? (
+            <span className="flex h-full w-full items-center justify-center text-xs font-bold text-muted-foreground">
+              {SPELL_FALLBACK_LABEL[spell]}
+            </span>
+          ) : (
+            <img
+              src={url}
+              alt={SPELL_LABEL[spell]}
+              className={cn(
+                'h-full w-full object-cover',
+                running && 'brightness-[.45] grayscale',
+              )}
+              onError={() => setImgFailed(true)}
+              draggable={false}
+            />
+          )}
+          {running && (
+            <>
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background: `conic-gradient(transparent ${elapsedDeg}deg, hsl(225 6% 8% / 0.8) ${elapsedDeg}deg)`,
+                }}
+              />
+              <span
+                className={cn(
+                  'absolute inset-0 flex items-center justify-center text-[13px] font-bold tabular-nums text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]',
+                  soon && 'animate-pulse text-indigo-300',
+                )}
+              >
+                {formatCooldown(remaining)}
+              </span>
+              {timer?.approximate && (
+                <span className="absolute right-0.5 top-0 text-[10px] leading-none text-white/60">
+                  ~
+                </span>
+              )}
+            </>
+          )}
+        </button>
       </TooltipTrigger>
       <TooltipContent>
-        {running ? 'Clic : reset (récupéré)' : 'Clic : démarrer le cooldown'}
+        {SPELL_LABEL[spell]} — {enemy.championName} ·{' '}
+        {running ? 'clic : reset (récupéré)' : 'clic : démarrer le cooldown'}
       </TooltipContent>
     </Tooltip>
   );
@@ -87,7 +147,7 @@ function EnemyRow({ enemy, now }: { enemy: EnemyConfig; now: number }) {
   const chips: SpellKey[] = ['flash'];
   if (enemy.secondSummoner) chips.push(enemy.secondSummoner);
   chips.push('ult');
-  // Chips éphémères : spells démarrés à la voix mais pas suivis en permanence.
+  // Icônes éphémères : spells démarrés à la voix mais pas suivis en permanence.
   for (const timer of Object.values(activeTimers)) {
     if (timer.championId === enemy.championId && !chips.includes(timer.spell)) {
       chips.push(timer.spell);
@@ -101,11 +161,16 @@ function EnemyRow({ enemy, now }: { enemy: EnemyConfig; now: number }) {
     update({ ultRank: (enemy.ultRank === 3 ? 1 : enemy.ultRank + 1) as UltRank });
 
   return (
-    <Card className="bg-card/60">
+    <Card className="bg-card">
       <div className="flex flex-wrap items-center gap-3 p-2.5">
-        <ChampionIcon championId={enemy.championId} name={enemy.championName} size={44} />
-        <div className="min-w-[100px]">
-          <p className="text-sm font-bold leading-tight">{enemy.championName}</p>
+        <ChampionIcon
+          championId={enemy.championId}
+          name={enemy.championName}
+          size={44}
+          className="rounded-full"
+        />
+        <div className="min-w-[110px]">
+          <p className="text-sm font-semibold leading-tight">{enemy.championName}</p>
           <div className="mt-1 flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -114,9 +179,9 @@ function EnemyRow({ enemy, now }: { enemy: EnemyConfig; now: number }) {
                   variant="outline"
                   pressed={enemy.hasIonianBoots}
                   onPressedChange={(v) => update({ hasIonianBoots: v })}
-                  className="h-6 min-w-0 px-1.5 text-[11px] data-[state=on]:border-sky-400/60 data-[state=on]:bg-sky-400/15 data-[state=on]:text-sky-300"
+                  className="h-6 min-w-0 px-1.5 data-[state=on]:border-primary/60 data-[state=on]:bg-primary/20 data-[state=on]:text-indigo-300"
                 >
-                  👢
+                  <Footprints className="!size-3.5" />
                 </Toggle>
               </TooltipTrigger>
               <TooltipContent>
@@ -130,9 +195,9 @@ function EnemyRow({ enemy, now }: { enemy: EnemyConfig; now: number }) {
                   variant="outline"
                   pressed={enemy.hasCosmicInsight}
                   onPressedChange={(v) => update({ hasCosmicInsight: v })}
-                  className="h-6 min-w-0 px-1.5 text-[11px] data-[state=on]:border-violet-400/60 data-[state=on]:bg-violet-400/15 data-[state=on]:text-violet-300"
+                  className="h-6 min-w-0 px-1.5 data-[state=on]:border-primary/60 data-[state=on]:bg-primary/20 data-[state=on]:text-indigo-300"
                 >
-                  🔮
+                  <Sparkles className="!size-3.5" />
                 </Toggle>
               </TooltipTrigger>
               <TooltipContent>
@@ -169,7 +234,7 @@ function EnemyRow({ enemy, now }: { enemy: EnemyConfig; now: number }) {
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
           {chips.map((spell) => (
-            <TimerChip key={spell} enemy={enemy} spell={spell} now={now} />
+            <SpellIcon key={spell} enemy={enemy} spell={spell} now={now} />
           ))}
         </div>
       </div>
@@ -241,25 +306,25 @@ function EnemyRow({ enemy, now }: { enemy: EnemyConfig; now: number }) {
 
 export function TimerBoard({ onEditTeam }: { onEditTeam: () => void }) {
   const enemies = useStore(manualProvider.store, (s) => s.enemies);
-  const now = useNow(200);
+  const now = useNow(150);
 
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
           Cooldowns ennemis
         </h2>
-        <Button variant="outline" size="sm" onClick={onEditTeam}>
+        <Button variant="secondary" size="sm" onClick={onEditTeam}>
           <Pencil /> Modifier l'équipe
         </Button>
       </div>
       {enemies.map((enemy) => (
         <EnemyRow key={enemy.championId} enemy={enemy} now={now} />
       ))}
-      <p className="pt-1 text-[11px] leading-relaxed text-muted-foreground/70">
-        Voix : « ahri no flash », « zed no ult », « lucian flash up »… Clic sur un
-        chip = start/reset manuel. 👢/🔮 = haste (défaut : worst case 0 haste). ~ =
-        valeur approximative.
+      <p className="pt-1 text-[11px] leading-relaxed text-muted-foreground/80">
+        Voix : « ahri no flash », « zed no ult », « lucian flash up »… Clic sur une
+        icône = start/reset manuel. Bottes/Cosmic = haste (défaut : worst case 0
+        haste). ~ = valeur approximative.
       </p>
     </section>
   );

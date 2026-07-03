@@ -2,29 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Thème shadcn/ui — palette zinc, app dark-only (feeling overlay). */
+/*
+ * Thème shadcn/ui façon Discord — dark-only.
+ * Palette volontairement restreinte : gris foncés + blurple/indigo (#5865F2)
+ * et ses variantes claires. Aucune autre couleur.
+ */
 @layer base {
   :root {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 8% 6%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 45 93% 58%;
-    --primary-foreground: 26 83% 14%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 45 93% 58%;
-    --radius: 0.6rem;
+    --background: 223 7% 21%; /* ~#313338 */
+    --foreground: 210 11% 95%; /* ~#f2f3f5 */
+    --card: 220 7% 18%; /* ~#2b2d31 */
+    --card-foreground: 210 11% 95%;
+    --popover: 225 6% 13%; /* ~#1e1f22 */
+    --popover-foreground: 210 11% 95%;
+    --primary: 235 86% 65%; /* blurple #5865F2 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 235 30% 28%; /* bleu sombre, boutons secondaires */
+    --secondary-foreground: 230 70% 90%;
+    --muted: 225 7% 24%; /* ~#383a40 */
+    --muted-foreground: 214 8% 61%; /* ~#949ba4 */
+    --accent: 227 7% 27%; /* ~#404249 hover */
+    --accent-foreground: 210 11% 95%;
+    --destructive: 235 55% 48%; /* pas de rouge : bleu profond */
+    --destructive-foreground: 0 0% 100%;
+    --border: 228 6% 26%;
+    --input: 228 6% 26%;
+    --ring: 235 86% 65%;
+    --radius: 0.5rem;
     color-scheme: dark;
   }
 }
@@ -50,8 +54,9 @@
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  @apply rounded bg-zinc-700;
+  border-radius: 4px;
+  background: hsl(225 6% 13%);
 }
 ::-webkit-scrollbar-track {
-  @apply bg-transparent;
+  background: transparent;
 }

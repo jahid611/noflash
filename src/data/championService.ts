@@ -1,9 +1,13 @@
+import type { SummonerSpellKey } from '../cooldowns/types';
 import type { KeyValueCache } from './cache';
 import {
+  SUMMONER_SPELL_ICON,
   championIconUrl,
   fetchChampionList,
   fetchLatestVersion,
-  fetchUltCooldowns,
+  fetchUltData,
+  spellIconUrl,
+  type ChampionUltData,
 } from './ddragon';
 import { FALLBACK_CHAMPIONS, FALLBACK_VERSION } from './fallback';
 import type { ChampionDataset, ChampionSummary } from './types';
@@ -11,7 +15,7 @@ import type { ChampionDataset, ChampionSummary } from './types';
 const KEY_PREFIX = 'noflash:ddragon';
 const versionKey = `${KEY_PREFIX}:version`;
 const listKey = (version: string) => `${KEY_PREFIX}:list:${version}`;
-const ultKey = (version: string, id: string) => `${KEY_PREFIX}:ult:${version}:${id}`;
+const ultKey = (version: string, id: string) => `${KEY_PREFIX}:ult2:${version}:${id}`;
 
 /**
  * Source de données champions : ddragon en runtime (jamais au build), cache
@@ -19,17 +23,21 @@ const ultKey = (version: string, id: string) => `${KEY_PREFIX}:ult:${version}:${
  */
 export class ChampionService {
   private dataset: ChampionDataset | null = null;
-  private ultCooldowns = new Map<string, number[]>();
+  private ultData = new Map<string, ChampionUltData>();
 
   constructor(private readonly cache: KeyValueCache) {
     // Seed hors-ligne : les valeurs ddragon écraseront au prefetch.
     for (const champ of FALLBACK_CHAMPIONS) {
-      this.ultCooldowns.set(champ.id, [...champ.ultCooldowns]);
+      this.ultData.set(champ.id, { cooldowns: [...champ.ultCooldowns], iconFile: null });
     }
   }
 
   getDataset(): ChampionDataset | null {
     return this.dataset;
+  }
+
+  private version(): string {
+    return this.dataset?.version ?? FALLBACK_VERSION;
   }
 
   async load(): Promise<ChampionDataset> {
@@ -75,23 +83,27 @@ export class ChampionService {
     }
   }
 
-  /** Charge (et met en cache) les CD d'ult d'un champion. Best-effort. */
+  /** Charge (et met en cache) CD + icône d'ult d'un champion. Best-effort. */
   async prefetchUlt(championId: string): Promise<void> {
     const ds = this.dataset;
     if (!ds || ds.source !== 'ddragon') return; // fallback déjà seedé
     const cached = this.cache.get(ultKey(ds.version, championId));
     if (cached) {
       try {
-        this.ultCooldowns.set(championId, JSON.parse(cached) as number[]);
-        return;
+        const parsed = JSON.parse(cached) as ChampionUltData;
+        if (Array.isArray(parsed.cooldowns)) {
+          this.ultData.set(championId, parsed);
+          return;
+        }
       } catch {
-        this.cache.remove(ultKey(ds.version, championId));
+        // format invalide → refetch
       }
+      this.cache.remove(ultKey(ds.version, championId));
     }
     try {
-      const cooldowns = await fetchUltCooldowns(ds.version, championId);
-      this.ultCooldowns.set(championId, cooldowns);
-      this.cache.set(ultKey(ds.version, championId), JSON.stringify(cooldowns));
+      const data = await fetchUltData(ds.version, championId);
+      this.ultData.set(championId, data);
+      this.cache.set(ultKey(ds.version, championId), JSON.stringify(data));
     } catch {
       // pas bloquant : computeCooldown passera en valeur approximative
     }
@@ -99,11 +111,22 @@ export class ChampionService {
 
   /** Accès synchrone (après prefetch) pour le calcul de CD. */
   getCachedUltCooldowns(championId: string): number[] | undefined {
-    return this.ultCooldowns.get(championId);
+    return this.ultData.get(championId)?.cooldowns;
+  }
+
+  /** Icône d'ult ddragon (comme en jeu), null si pas encore connue. */
+  getUltIconUrl(championId: string): string | null {
+    const iconFile = this.ultData.get(championId)?.iconFile;
+    return iconFile ? spellIconUrl(this.version(), iconFile) : null;
+  }
+
+  /** Icône d'un summoner spell (mêmes assets qu'en jeu). */
+  getSummonerIconUrl(spell: SummonerSpellKey): string {
+    return spellIconUrl(this.version(), SUMMONER_SPELL_ICON[spell]);
   }
 
   iconUrl(championId: string): string {
-    return championIconUrl(this.dataset?.version ?? FALLBACK_VERSION, championId);
+    return championIconUrl(this.version(), championId);
   }
 
   findByName(name: string): ChampionSummary | undefined {

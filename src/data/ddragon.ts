@@ -1,3 +1,4 @@
+import type { SummonerSpellKey } from '../cooldowns/types';
 import type { ChampionSummary } from './types';
 
 export const DDRAGON_BASE = 'https://ddragon.leagueoflegends.com';
@@ -31,24 +32,53 @@ export async function fetchChampionList(version: string): Promise<ChampionSummar
 }
 
 interface DDragonChampionDetail {
-  data: Record<string, { spells: Array<{ cooldown: number[] }> }>;
+  data: Record<
+    string,
+    { spells: Array<{ cooldown: number[]; image?: { full?: string } }> }
+  >;
 }
 
-/** spells[3] = R → cooldown[] par rang (les ults montent au 6/11/16). */
-export async function fetchUltCooldowns(
+export interface ChampionUltData {
+  /** CD de base par rang (spells[3].cooldown — les ults montent au 6/11/16). */
+  cooldowns: number[];
+  /** Fichier d'icône ddragon de l'ult (ex "AhriR.png"), null si inconnu. */
+  iconFile: string | null;
+}
+
+/** spells[3] = R → cooldown[] par rang + icône du sort. */
+export async function fetchUltData(
   version: string,
   championId: string,
-): Promise<number[]> {
+): Promise<ChampionUltData> {
   const payload = await fetchJson<DDragonChampionDetail>(
     `${DDRAGON_BASE}/cdn/${version}/data/en_US/champion/${championId}.json`,
   );
-  const cooldown = payload.data[championId]?.spells?.[3]?.cooldown;
-  if (!Array.isArray(cooldown) || cooldown.length === 0) {
+  const ult = payload.data[championId]?.spells?.[3];
+  if (!ult || !Array.isArray(ult.cooldown) || ult.cooldown.length === 0) {
     throw new Error(`pas de cooldown d'ult pour ${championId}`);
   }
-  return cooldown;
+  return { cooldowns: ult.cooldown, iconFile: ult.image?.full ?? null };
 }
 
 export function championIconUrl(version: string, championId: string): string {
   return `${DDRAGON_BASE}/cdn/${version}/img/champion/${championId}.png`;
+}
+
+/**
+ * Icônes des summoner spells sur le CDN ddragon (mêmes assets qu'en jeu).
+ * ⚠️ Noms de fichiers stables historiquement, à revérifier si Riot les renomme.
+ */
+export const SUMMONER_SPELL_ICON: Record<SummonerSpellKey, string> = {
+  flash: 'SummonerFlash.png',
+  teleport: 'SummonerTeleport.png',
+  ignite: 'SummonerDot.png',
+  heal: 'SummonerHeal.png',
+  exhaust: 'SummonerExhaust.png',
+  barrier: 'SummonerBarrier.png',
+  cleanse: 'SummonerBoost.png',
+  ghost: 'SummonerHaste.png',
+};
+
+export function spellIconUrl(version: string, iconFile: string): string {
+  return `${DDRAGON_BASE}/cdn/${version}/img/spell/${iconFile}`;
 }

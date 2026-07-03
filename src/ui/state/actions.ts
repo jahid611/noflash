@@ -59,7 +59,7 @@ export function startCooldown(enemy: EnemyConfig, spell: SpellKey, meta: ActionM
   });
   addToast(
     'success',
-    `🔴 ${SPELL_LABEL[spell]} — ${enemy.championName} ${formatMMSS(computed.seconds)}`,
+    `${SPELL_LABEL[spell]} — ${enemy.championName} ${formatMMSS(computed.seconds)}`,
     computed.note ?? (computed.approximate ? 'valeur approximative' : undefined),
   );
   if (settings.ttsEnabled && meta.source !== 'click') {
@@ -71,7 +71,7 @@ export function startCooldown(enemy: EnemyConfig, spell: SpellKey, meta: ActionM
 export function resetCooldown(enemy: EnemyConfig, spell: SpellKey, meta: ActionMeta): void {
   const settings = useSettingsStore.getState();
   timerEngine.getState().clear(enemy.championId, spell);
-  addToast('info', `🟢 ${SPELL_LABEL[spell]} — ${enemy.championName} up`);
+  addToast('info', `${SPELL_LABEL[spell]} — ${enemy.championName} up`);
   if (settings.ttsEnabled && meta.source !== 'click') {
     tts.speak(`${SPELL_TTS[spell]} ${enemy.championName} up`, settings.ttsLang);
   }
@@ -89,7 +89,7 @@ export function startTimerJanitor(): () => void {
     for (const timer of expired) {
       const enemy = manualProvider.findEnemy(timer.championId);
       const name = enemy?.championName ?? timer.championId;
-      addToast('info', `🟢 ${SPELL_LABEL[timer.spell]} — ${name} de nouveau up`);
+      addToast('info', `${SPELL_LABEL[timer.spell]} — ${name} de nouveau up`);
       if (settings.ttsEnabled) {
         tts.speak(`${SPELL_TTS[timer.spell]} ${name} up`, settings.ttsLang);
       }

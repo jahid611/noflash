@@ -133,7 +133,7 @@ export async function enableVoice(): Promise<void> {
       kind: 'error',
       detail: `Activation voix impossible : ${message}. Modèle présent dans public/model/ ? (voir README)`,
     });
-    addToast('error', '❌ Activation voix impossible', message);
+    addToast('error', 'Activation voix impossible', message);
   }
 }
 
@@ -209,7 +209,7 @@ function onPttUp(): void {
       } else {
         // Échec explicite, jamais silencieux (§9).
         addLog({ kind: 'silence', detail: 'Rien capté pendant l’appui' });
-        addToast('info', '🔇 Rien capté');
+        addToast('info', 'Rien capté');
       }
     }, SILENCE_TIMEOUT_MS);
   }, RELEASE_GRACE_MS);
@@ -264,7 +264,7 @@ function handleGameTranscript(transcript: string, meta: UtteranceMeta): void {
           ? 'champion détecté mais aucun spell reconnu'
           : 'aucun champion reconnu',
     });
-    addToast('error', `❓ Non reconnu : « ${transcript} »`);
+    addToast('error', `Non reconnu : « ${transcript} »`);
     return;
   }
 
@@ -278,7 +278,7 @@ function handleGameTranscript(transcript: string, meta: UtteranceMeta): void {
       latencyMs: meta.latencyMs,
       detail: `${intent.championName} n'est pas dans l'équipe suivie`,
     });
-    addToast('error', `❓ ${intent.championName} n'est pas dans l'équipe ennemie`);
+    addToast('error', `${intent.championName} n'est pas dans l'équipe ennemie`);
     return;
   }
 

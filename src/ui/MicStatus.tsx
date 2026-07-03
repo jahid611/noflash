@@ -37,14 +37,14 @@ export function MicStatus() {
           className={cn(
             'gap-1.5 font-semibold',
             listening
-              ? 'border-red-500/60 bg-red-500/15 text-red-300'
+              ? 'border-primary/60 bg-primary/15 text-indigo-300'
               : 'text-muted-foreground',
           )}
         >
           <span
             className={cn(
               'h-2 w-2 rounded-full',
-              listening ? 'animate-pulse bg-red-400' : 'bg-zinc-500',
+              listening ? 'animate-pulse bg-indigo-400' : 'bg-muted-foreground/60',
             )}
           />
           {alwaysOn ? 'ALWAYS ON' : `PTT [${keyCodeLabel(pttKeyCode)}]`}

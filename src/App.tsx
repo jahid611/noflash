@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useStore } from 'zustand';
+import { Zap } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -33,11 +34,12 @@ export default function App() {
   return (
     <TooltipProvider delayDuration={300}>
       <div className="min-h-screen">
-        <Toaster position="top-center" richColors closeButton={false} />
-        <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
+        <Toaster position="top-center" closeButton={false} />
+        <header className="sticky top-0 z-40 border-b bg-popover/95 backdrop-blur">
           <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-2.5">
-            <h1 className="text-lg font-black tracking-tight">
-              <span className="text-primary">⚡ No</span>Flash
+            <h1 className="flex items-center gap-1.5 text-lg font-black tracking-tight">
+              <Zap className="h-5 w-5 fill-primary text-primary" />
+              NoFlash
             </h1>
             <Tabs value={view} onValueChange={(v) => setView(v as View)}>
               <TabsList>

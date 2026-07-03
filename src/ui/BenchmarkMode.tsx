@@ -90,12 +90,12 @@ export function BenchmarkMode() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary">
-            🎯 Objectif : ≥ 90 % de reco sur ce set. En dessous, l'hypothèse voix est
+            Objectif : ≥ 90 % de reco sur ce set. En dessous, l'hypothèse voix est
             invalidée — et on le sait sans avoir codé l'overlay.
           </p>
           {voicePhase !== 'ready' && (
-            <p className="text-sm text-red-300">
-              ⚠ Active d'abord la voix (bouton en haut à droite). La saisie manuelle
+            <p className="text-sm text-indigo-300">
+              Active d'abord la voix (bouton en haut à droite). La saisie manuelle
               du panneau Transcript marche aussi pour tester le pipeline.
             </p>
           )}
@@ -157,17 +157,17 @@ export function BenchmarkMode() {
           <Card
             className={cn(
               lastResult.intentOk
-                ? 'border-emerald-500/40 bg-emerald-500/5'
-                : 'border-red-500/40 bg-red-500/5',
+                ? 'border-primary/50 bg-primary/10'
+                : 'border-border bg-muted/40',
             )}
           >
             <CardContent
               className={cn(
                 'px-4 py-2.5 text-sm',
-                lastResult.intentOk ? 'text-emerald-300' : 'text-red-300',
+                lastResult.intentOk ? 'text-indigo-200' : 'text-muted-foreground',
               )}
             >
-              {lastResult.intentOk ? '✅' : '❌'} #{lastResult.index} « {lastResult.command} » —
+              {lastResult.intentOk ? '✓' : '✗'} #{lastResult.index} « {lastResult.command} » —
               entendu : <span className="font-mono">« {lastResult.transcript || '∅'} »</span>
               {typeof lastResult.latencyMs === 'number' && ` · ${lastResult.latencyMs} ms`}
             </CardContent>
@@ -188,13 +188,13 @@ export function BenchmarkMode() {
             className={cn(
               'px-3 py-1 text-sm font-black',
               metrics.recoRate >= 0.9
-                ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300'
-                : 'border-red-500/50 bg-red-500/10 text-red-300',
+                ? 'border-primary/60 bg-primary/15 text-indigo-300'
+                : 'border-border bg-muted text-muted-foreground',
             )}
           >
             {metrics.recoRate >= 0.9
-              ? '🎯 Objectif ≥ 90 % atteint'
-              : '💀 < 90 % — hypothèse invalidée'}
+              ? 'Objectif ≥ 90 % atteint'
+              : '< 90 % — hypothèse invalidée'}
           </Badge>
         )}
         <div className="ml-auto flex gap-2">
@@ -276,7 +276,7 @@ export function BenchmarkMode() {
                           <TableCell
                             className={cn(
                               'text-right font-mono tabular-nums',
-                              c.intentOk === c.attempts ? 'text-emerald-400' : 'text-red-400',
+                              c.intentOk === c.attempts ? 'text-indigo-300' : 'text-muted-foreground',
                             )}
                           >
                             {c.intentOk}/{c.attempts}
