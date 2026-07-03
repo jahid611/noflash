@@ -72,12 +72,18 @@ let releaseAt: number | null = null;
 let utteranceHadResult = false;
 let graceTimer: number | null = null;
 let silenceTimer: number | null = null;
+let desktopWindowTimer: number | null = null;
+
+/** Fenêtre d'écoute déclenchée au raccourci global desktop (pas de keyup possible). */
+const DESKTOP_LISTEN_WINDOW_MS = 3500;
 
 function clearPttTimers(): void {
   if (graceTimer !== null) window.clearTimeout(graceTimer);
   if (silenceTimer !== null) window.clearTimeout(silenceTimer);
+  if (desktopWindowTimer !== null) window.clearTimeout(desktopWindowTimer);
   graceTimer = null;
   silenceTimer = null;
+  desktopWindowTimer = null;
 }
 
 function rosterChampions(): ChampionRef[] {
@@ -271,26 +277,50 @@ function onPttDown(): void {
   useVoiceStore.setState({ listening: true, partial: '' });
 }
 
+/** Ferme la gate, force la finalisation vosk et programme l'échec explicite. */
+function finalizeAndScheduleSilence(): void {
+  gateOpen = false;
+  session?.flush();
+  useVoiceStore.setState({ listening: false });
+  silenceTimer = window.setTimeout(() => {
+    if (utteranceHadResult) return;
+    useVoiceStore.setState({ partial: '' });
+    if (consumer?.onSilence) {
+      consumer.onSilence();
+    } else {
+      // Échec explicite, jamais silencieux (§9).
+      addLog({ kind: 'silence', detail: 'Rien capté pendant l’écoute' });
+      addToast('info', 'Rien capté');
+    }
+  }, SILENCE_TIMEOUT_MS);
+}
+
 function onPttUp(): void {
   if (!pttDown) return;
   pttDown = false;
   releaseAt = performance.now();
-  graceTimer = window.setTimeout(() => {
-    gateOpen = false;
-    session?.flush();
-    useVoiceStore.setState({ listening: false });
-    silenceTimer = window.setTimeout(() => {
-      if (utteranceHadResult) return;
-      useVoiceStore.setState({ partial: '' });
-      if (consumer?.onSilence) {
-        consumer.onSilence();
-      } else {
-        // Échec explicite, jamais silencieux (§9).
-        addLog({ kind: 'silence', detail: 'Rien capté pendant l’appui' });
-        addToast('info', 'Rien capté');
-      }
-    }, SILENCE_TIMEOUT_MS);
-  }, RELEASE_GRACE_MS);
+  graceTimer = window.setTimeout(finalizeAndScheduleSilence, RELEASE_GRACE_MS);
+}
+
+/**
+ * Raccourci global desktop : ouvre une fenêtre d'écoute bornée puis finalise.
+ * Electron ne fournit pas de keyup global (donc pas de vrai maintien) — cette
+ * pulsation « appuie, dis ta commande, ça se coupe seul » est le compromis.
+ */
+export function pulseDesktopListen(): void {
+  if (useVoiceStore.getState().phase !== 'ready') return;
+  if (useSettingsStore.getState().alwaysOn) return; // déjà en écoute continue
+  clearPttTimers();
+  gateOpen = true;
+  pttDown = false;
+  releaseAt = null;
+  utteranceHadResult = false;
+  useVoiceStore.setState({ listening: true, partial: '' });
+  desktopWindowTimer = window.setTimeout(() => {
+    desktopWindowTimer = null;
+    releaseAt = performance.now();
+    finalizeAndScheduleSilence();
+  }, DESKTOP_LISTEN_WINDOW_MS);
 }
 
 function handleFinalResult(rawText: string): void {

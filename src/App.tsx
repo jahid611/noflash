@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { BenchmarkMode } from '@/ui/BenchmarkMode';
+import { DesktopBar } from '@/ui/DesktopBar';
 import { MicStatus } from '@/ui/MicStatus';
 import { SettingsView } from '@/ui/Settings';
 import { TeamSetup } from '@/ui/TeamSetup';
@@ -12,6 +13,7 @@ import { TimerBoard } from '@/ui/TimerBoard';
 import { TranscriptPanel } from '@/ui/TranscriptPanel';
 import { startTimerJanitor } from '@/ui/state/actions';
 import { loadChampionData, useDataStore } from '@/ui/state/dataStore';
+import { initDesktop, setOverlayInteractive, useDesktopStore } from '@/ui/state/desktop';
 import { hydrateRoster, manualProvider, startRosterPersistence } from '@/ui/state/runtime';
 
 type View = 'game' | 'benchmark' | 'settings';
@@ -21,11 +23,13 @@ export default function App() {
   const [editingTeam, setEditingTeam] = useState(false);
   const dataStatus = useDataStore((s) => s.status);
   const enemies = useStore(manualProvider.store, (s) => s.enemies);
+  const overlay = useDesktopStore((s) => s.overlay);
 
   useEffect(() => {
     hydrateRoster();
     startRosterPersistence();
     void loadChampionData();
+    initDesktop(); // no-op en web ; branche la lecture de partie en desktop
     return startTimerJanitor();
   }, []);
 
@@ -33,7 +37,13 @@ export default function App() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="min-h-screen">
+      <div
+        className="min-h-screen"
+        // En overlay click-through : l'UI devient cliquable au survol, sinon la
+        // souris passe vers le jeu.
+        onMouseEnter={overlay ? () => setOverlayInteractive(true) : undefined}
+        onMouseLeave={overlay ? () => setOverlayInteractive(false) : undefined}
+      >
         <Toaster position="top-center" closeButton={false} />
         <header className="sticky top-0 z-40 border-b bg-popover/95 backdrop-blur">
           <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-2.5">
@@ -48,7 +58,8 @@ export default function App() {
                 <TabsTrigger value="settings">Réglages</TabsTrigger>
               </TabsList>
             </Tabs>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <DesktopBar />
               <MicStatus />
             </div>
           </div>

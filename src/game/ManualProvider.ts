@@ -1,6 +1,17 @@
 import { createStore } from 'zustand/vanilla';
+import { ultRankForLevel } from '../cooldowns/ults';
+import type { SummonerSpellKey } from '../cooldowns/types';
 import type { GameStateProvider } from './GameStateProvider';
 import { defaultEnemyConfig, type EnemyConfig } from './types';
+
+/** Ennemi résolu depuis la Live Client Data API (côté renderer). */
+export interface LiveSyncEnemy {
+  championId: string;
+  championName: string;
+  level: number;
+  hasIonianBoots: boolean;
+  secondSummoner: SummonerSpellKey | null;
+}
 
 /** id ddragon de l'item Ionian Boots of Lucidity. ⚠️ PATCH-DEPENDENT. */
 export const IONIAN_BOOTS_ITEM_ID = '3158';
@@ -61,4 +72,36 @@ export class ManualProvider implements GameStateProvider {
   clearTeam(): void {
     this.store.setState({ enemies: [] });
   }
+
+  /**
+   * Synchronise l'équipe depuis une partie en cours (desktop). Fusion :
+   * composition / niveau / rang d'ult / bottes / 2e summoner viennent du jeu,
+   * MAIS les réglages purement manuels (Cosmic Insight, haste additionnels) sont
+   * préservés — la Live Client API n'expose jamais les runes ennemies (§12).
+   * No-op si rien n'a changé, pour éviter le churn du polling (~toutes les 2s).
+   */
+  syncFromLive(live: LiveSyncEnemy[]): void {
+    const current = this.getEnemyTeam();
+    const next: EnemyConfig[] = live.slice(0, 5).map((l) => {
+      const existing = current.find((e) => e.championId === l.championId);
+      const base = existing ?? defaultEnemyConfig(l.championId, l.championName);
+      return {
+        ...base,
+        championName: l.championName,
+        level: l.level,
+        ultRank: ultRankForLevel(l.level),
+        hasIonianBoots: l.hasIonianBoots,
+        secondSummoner: l.secondSummoner,
+      };
+    });
+    if (liveSignature(current) === liveSignature(next)) return; // rien de neuf
+    this.store.setState({ enemies: next });
+  }
+}
+
+/** Signature des champs pilotés par le live — pour détecter un vrai changement. */
+function liveSignature(enemies: EnemyConfig[]): string {
+  return enemies
+    .map((e) => `${e.championId}:${e.level}:${e.hasIonianBoots ? 1 : 0}:${e.secondSummoner ?? '-'}`)
+    .join('|');
 }

@@ -1,0 +1,39 @@
+appId: com.noflash.app
+productName: NoFlash
+copyright: NoFlash
+
+# asar désactivé volontairement : l'app sert son propre build via un petit serveur
+# statique local (electron/staticServer.cjs) et vosk-browser fetch le modèle
+# (~40 Mo). En fichiers bruts, aucune surprise de lecture dans une archive asar.
+asar: false
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+
+win:
+  target:
+    - target: nsis
+    - target: portable
+  # Ajoute build/icon.ico pour une icône personnalisée (optionnel).
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+
+mac:
+  target:
+    - dmg
+  category: public.app-category.utilities
+
+linux:
+  target:
+    - AppImage
+  category: Game

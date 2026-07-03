@@ -127,14 +127,15 @@ benchmark existe pour le **mesurer**, pas pour le cacher.
 src/
   audio/       # capture micro (AudioWorklet 16 kHz), PTT, TTS — impls navigateur derrière interfaces
   voice/       # wrapper vosk, builder de grammaire, parser de commandes (PUR)
-  game/        # interface GameStateProvider + ManualProvider web (PUR)
+  game/        # GameStateProvider + ManualProvider + lecture Live Client (liveMapping) (PUR)
   cooldowns/   # maths de CD (formule haste), tables summoners, ults par rang (PUR)
   data/        # fetch ddragon + cache localStorage + dataset fallback
   timers/      # store/logique des timers (PUR)
-  ui/          # React : TeamSetup, TimerBoard, TranscriptPanel, BenchmarkMode, Settings
+  ui/          # React : TeamSetup, TimerBoard, TranscriptPanel, BenchmarkMode, Settings, DesktopBar
   components/  # composants shadcn/ui (button, card, tabs, select, sonner…)
   lib/         # cn() et utilitaires UI
-public/model/  # modèle vosk (téléchargé par l'utilisateur, voir plus haut)
+electron/      # process desktop : main, preload, polling Live Client, serveur statique local
+public/model/  # modèle vosk (voir plus haut)
 ```
 
 Le front est entièrement en **shadcn/ui** (style new-york, Radix + Tailwind,
@@ -148,12 +149,12 @@ sont des modules purs — zéro import React ou DOM. Vérifié mécaniquement pa
 `npm run check:pure` (inclus dans `npm run build`). Toute dépendance navigateur
 est isolée derrière une interface :
 
-| Seam | Impl web | Impl desktop (plus tard) |
+| Seam | Impl web | Impl desktop (Electron) |
 | --- | --- | --- |
-| `game/GameStateProvider` | `ManualProvider` (saisie manuelle) | `LiveClientProvider` (127.0.0.1:2999) |
-| `audio/AudioInput` | getUserMedia + AudioWorklet | capture native |
-| `audio/HotkeyBinding` | keydown/keyup window | raccourci global + boutons souris pouce |
-| `audio/SpeechOutput` | SpeechSynthesis | TTS natif |
+| lecture de partie | `ManualProvider` (saisie manuelle) | polling Live Client 127.0.0.1:2999 → `syncFromLive` |
+| `audio/AudioInput` | getUserMedia + AudioWorklet | idem (renderer Electron) |
+| `audio/HotkeyBinding` | keydown/keyup window | `globalShortcut` (fonctionne hors focus) |
+| `audio/SpeechOutput` | SpeechSynthesis | idem |
 
 ⚠️ **Limite bakée dès maintenant** : la Live Client API expose les **items**
 ennemis mais **pas les runes**. Cosmic Insight ne sera donc *jamais* détectable
@@ -178,17 +179,68 @@ qu'on aura les runes un jour.
   `src/cooldowns/summoners.ts`, `src/cooldowns/ults.ts`, `src/data/fallback.ts`,
   commentées « à revérifier par patch ».
 
+## 🖥️ App desktop (Electron) — lecture de la vraie partie
+
+Le web est un **banc de test** : un navigateur ne peut PAS lire l'API locale de
+League (`https://127.0.0.1:2999/liveclientdata/...`) — bloquée par CORS + son
+certificat auto-signé. **Aucune** page web ne le peut. Le vrai produit qui lit
+ta partie est donc l'**app desktop Electron**.
+
+Elle réutilise tel quel le front (React + shadcn) et ajoute :
+
+- **Détection auto de la partie** + récupération en direct de l'**équipe
+  ennemie**, de leurs **summoners réels**, **niveaux** et **items** (→ bottes
+  ioniennes auto-détectées). Le polling tourne dans le process principal
+  (Node), seul capable de joindre l'API locale ; le certificat auto-signé n'est
+  accepté que pour cette requête.
+- Cosmic Insight reste un **toggle manuel** : les runes ennemies ne sont jamais
+  exposées, même en desktop (limite de Riot, pas de l'app).
+- Un **raccourci global** (défaut `F8`, via `NOFLASH_HOTKEY`) qui ouvre une
+  courte fenêtre d'écoute même quand League a le focus.
+- Un **mode overlay** expérimental (fenêtre transparente always-on-top, clic
+  traversant).
+
+### Lancer en dev
+
+```bash
+npm install                 # récupère aussi Electron (~100 Mo au 1er install)
+npm run electron:dev        # Vite + Electron, rechargement à chaud
+```
+
+Lance une partie (ou l'outil de practice) : l'équipe ennemie se remplit toute
+seule. Sans partie, la saisie manuelle reste disponible.
+
+### Tester le rendu packagé sans construire l'installeur
+
+```bash
+npm run electron:prod       # build + Electron en mode production (serveur statique local)
+```
+
+### Construire l'exécutable
+
+```bash
+npm run dist:win            # → release/  (installeur .nsis + .exe portable)
+# npm run dist:mac / dist:linux pour les autres OS
+```
+
+Le modèle vosk (`public/model/…tar.gz`) et le front buildé sont embarqués :
+l'exe fonctionne hors-ligne (hors ddragon, qui reste en ligne pour les icônes).
+
 ## Scripts
 
 ```bash
-npm run dev         # serveur de dev
-npm test            # tests unitaires des modules purs (parser, grammaire, CD, timers)
-npm run check:pure  # vérifie la règle d'or (zéro React/DOM dans les modules purs)
-npm run build       # check:pure + tsc + vite build
+npm run dev            # front web seul (banc de test / Vercel)
+npm run electron:dev   # app desktop en dev (Vite + Electron)
+npm run electron:prod  # app desktop, rendu production, sans packaging
+npm run dist:win       # construit l'installeur / .exe Windows
+npm test               # tests unitaires des modules purs (parser, grammaire, CD, timers, live)
+npm run check:pure     # vérifie la règle d'or (zéro React/DOM dans les modules purs)
+npm run build          # check:pure + tsc + vite build
 ```
 
 ## Note ToS
 
-Input 100 % manuel (c'est le joueur qui voit le flash et le dit), APIs
-officielles uniquement (Data Dragon, plus tard Live Client API), zéro lecture
-mémoire → même zone tolérée que Porofessor & co.
+Input 100 % manuel côté voix (c'est le joueur qui voit le flash et le dit),
+**APIs officielles uniquement** (Data Dragon + Live Client Data API de Riot,
+exactement celle qu'utilisent Porofessor/Blitz), **zéro lecture mémoire, zéro
+injection** → même zone tolérée que les assistants du même type.
