@@ -2,6 +2,9 @@ node_modules/
 dist/
 *.local
 
-# Modèle vosk : téléchargé par l'utilisateur (voir README), jamais commité.
-public/model/*.tar.gz
+# Modèle vosk : normalement téléchargé par l'utilisateur (voir README).
+# Le .tar.gz est TEMPORAIREMENT commité pour tester le déploiement Vercel
+# sans configuration — pour revenir en arrière :
+#   git rm public/model/vosk-model-small-en-us-0.15.tar.gz
+#   et ré-ajouter "public/model/*.tar.gz" ci-dessous.
 public/model/*.zip
