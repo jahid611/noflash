@@ -8,11 +8,14 @@ describe('buildLolPrompt', () => {
     expect(p).toContain('Malphite');
     expect(p).toContain("Kha'Zix");
     expect(p).toContain('flash');
+    expect(p).toContain('Champions ennemis :');
+    // Pas de phrase-exemple (risque d'hallucination Whisper).
+    expect(p.toLowerCase()).not.toContain('no flash');
   });
 
   it('reste valide sans champions (fallback)', () => {
     const p = buildLolPrompt([]);
     expect(p).toContain('League of Legends');
-    expect(p).not.toContain('ennemis :');
+    expect(p).not.toContain('Champions ennemis :');
   });
 });

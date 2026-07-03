@@ -42,16 +42,21 @@ export const WHISPER_MODELS = {
 
 /**
  * « Speech commun » : prompt de contexte qui fait connaître LoL à Whisper et
- * l'amorce sur les noms des champions de la partie. Whisper a tendance à
- * réutiliser le vocabulaire du prompt → il orthographie bien mieux « Malphite »,
- * « Kha'Zix », etc. Court volontairement (le prompt Whisper est borné).
+ * l'amorce sur les noms des champions de la partie. Whisper réutilise le
+ * vocabulaire du prompt → il orthographie bien mieux « Malphite », « Kha'Zix ».
+ *
+ * ⚠️ On n'y met QUE les champions ACTIFS (les 5 ennemis, fournis dynamiquement),
+ * pas les 165 du roster : le prompt Whisper est borné (~224 tokens) et amorcer
+ * sur la liste courte et pertinente est bien plus précis. La liste vient de la
+ * partie en direct / de la sélection → un nouveau champion (dernier patch) y est
+ * automatiquement. On donne du vocabulaire (noms + sorts), PAS de phrase exemple
+ * (qui ferait halluciner Whisper).
  */
 export function buildLolPrompt(championNames: string[]): string {
+  const spells = "flash, téléport, ignite, exhaust, heal, barrière, cleanse, ghost";
   const names = championNames.filter(Boolean).join(', ');
-  const base = "Contexte League of Legends : cooldowns d'invocateur et ultimes.";
-  return names
-    ? `${base} Champions ennemis : ${names}. Mots : flash, ultime, téléport, ignite.`
-    : `${base} Mots : flash, ultime, téléport, ignite.`;
+  const champs = names ? ` Champions ennemis : ${names}.` : '';
+  return `League of Legends, suivi des cooldowns ennemis (invocateurs et ultime R).${champs} Sorts d'invocateur : ${spells}.`;
 }
 
 export class WhisperEngine implements SttEngine {
